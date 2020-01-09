@@ -31,8 +31,7 @@ def makedir(path):
     :return:
     """
     if os.path.exists(path) is False:
-        os.mkdir(path)
-
+        os.makedirs(path)
 
 try:
     if os.path.exists(original_dataset_dir) is False:
@@ -48,74 +47,144 @@ except FileNotFoundError as e:
     print(e)
 
 
-def write_tfrecord(inputs_path, outputs_record_path, shuffle=True):
+#+++++++++++++++++++++++++++++++++++++++++generate tfrecord+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    image_names, labels, classes_name = get_label_data(inputs_path)
-    # use TFRecordWrite to write tfrecord
-    write = tf.io.TFRecordWriter(outputs_record_path)
-    for img_file, label, class_name in zip(image_names, labels, classes_name):
-        # array_img = Image.open(img_file)
-        # reshape_img = array_img.resize(shape_size)
-        brg_img = cv.imread(img_file)
-        image = cv.cvtColor(brg_img, cv.COLOR_BGR2RGB)
-        img_height = image.shape[0]
-        img_width = image.shape[1]
-        img_depth = image.shape[2]
+def write_tfrecord(source_path, outputs_path, split_ratio=0.2, per_record_capacity=500, shuffle=True):
+    """
 
-        img_example = image_example(label, image, img_height, img_width, img_depth, class_name.encode())
-        write.write(img_example)
-    write.close()
+    :param source_path:
+    :param outputs_path:
+    :param split_ratio:
+    :param shuffle:
+    :return:
+    """
+    # create tfrecord path
+    train_record_path = os.path.join(outputs_path, 'train')
+    test_record_path = os.path.join(outputs_path, 'test')
+    makedir(train_record_path)
+    makedir(test_record_path)
+
+    img_names, img_labels, classes_map = get_label_data(source_path, shuffle=shuffle)
+
+    num_samples = len(img_names)
+    test_data_num = int(num_samples * split_ratio)
+    train_data_num = num_samples - test_data_num
+
+    train_name_list = img_names[:train_data_num]
+    train_labels_list = img_labels[:train_data_num]
+    test_name_list = img_names[train_data_num:]
+    test_labels_list = img_labels[train_data_num:]
+
+    image_to_record(save_path=train_record_path,
+                    img_name_list=train_name_list,
+                    labels_list=train_labels_list,
+                    record_capacity=per_record_capacity)
+    print("There are {0} samples has successfully convert to tfrecord, save at {1}".format(train_data_num,
+                                                                                           train_record_path))
+    image_to_record(save_path=test_record_path,
+                    img_name_list=test_name_list,
+                    labels_list=test_labels_list,
+                    record_capacity=per_record_capacity)
+    print("There are {0} samples has successfully convert to tfrecord, save at {1}".format(test_data_num,
+                                                                                           test_record_path))
 
 
-def get_label_data(data_path, classes=None, shuffle=True):
+
+
+
+def image_to_record(save_path, img_name_list, labels_list=None, record_capacity=500):
+    """
+
+    :param save_path:
+    :param img_name_list: Str
+    :param img_list: Array, only used for binary format
+    :param format:
+    :param img_height: only used for binary format
+    :param img_width: only used for binary format
+    :param img_depth: only used for binary format
+    :param label_map:
+    :param record_capacity:
+    :return:
+    """
+    import cv2 as cv
+
+    remainder_num = len(img_name_list) % record_capacity
+    if remainder_num == 0:
+        num_record = int(len(img_name_list) / record_capacity)
+    else:
+        num_record = int(len(img_name_list) / record_capacity) + 1
+
+    for index in range(num_record):
+        record_filename = os.path.join(save_path, 'tfrecord-{0}.record'.format(index))
+        writer = tf.io.TFRecordWriter(record_filename)
+        if index < num_record - 1:
+            sub_img_name_list = img_name_list[index * record_capacity: (index + 1) * record_capacity]
+            sub_label_list = labels_list[index * record_capacity: (index + 1) * record_capacity]
+        else:
+            sub_img_name_list = img_name_list[(index * record_capacity): (index * record_capacity + remainder_num)]
+            sub_label_list = labels_list[(index * record_capacity): (index * record_capacity + remainder_num)]
+
+        for img_name, label in zip(sub_img_name_list, sub_label_list):
+
+            image_bgr = cv.imread(img_name)
+            image = cv.cvtColor(image_bgr, cv.COLOR_BGR2RGB)
+            height = image.shape[0]
+            width = image.shape[1]
+            depth = image.shape[2]
+
+            image_record = image_example(image=image, label=label, img_height=height, img_width=width, img_depth=depth,
+                                         filename=img_name)
+            writer.write(record=image_record)
+
+        writer.close()
+
+    return True
+
+def get_label_data(data_path, classes_map=None, shuffle=True):
     """
     get image list and label list
     :param data_path:
     :return:
     """
 
-    img_path = []  # save image name
-    img_labels = []  # save image name
-    img_names = []  # save image name
+    img_names = []  # image name
+    img_labels = []  # image label
+    class_map = {}
 
-    if not classes:
+    if classes_map is None:
         # classes name
-        classes = []
-        for subdir in sorted(os.listdir((data_path))):
+        for subdir in sorted(os.listdir(data_path)):
             if os.path.isdir(os.path.join(data_path, subdir)):
-                classes.append(subdir)
-    num_classes = len(classes)
-    class_indices = dict(zip(classes, range(num_classes)))
+                class_map[subdir] = len(class_map)
+    else:
+        class_map = classes_map
 
-    for class_name in classes:
+
+    for class_name, class_label in class_map.items():
         # get image file each of class
         class_dir = os.path.join(data_path, class_name)
         image_list = os.listdir(class_dir)
 
-        for image_name in image_list:
-            img_path.append(os.path.join(class_dir, image_name))
-            img_labels.append(class_indices[class_name])
-            img_names.append(image_name)
+        for img_name in image_list:
+            img_names.append(os.path.join(class_dir, img_name))
+            img_labels.append(class_label)
+
     num_samples = len(img_names)
 
     if shuffle:
-        img_path_shuffle = []
-        img_labels_shuffle = []
         img_names_shuffle = []
+        img_labels_shuffle = []
         index_array = np.random.permutation(num_samples)
 
         for i, index in enumerate(index_array):
-            img_path_shuffle.append(img_path[index])
-            img_labels_shuffle.append(img_labels[index])
             img_names_shuffle.append(img_names[index])
-        img_path = img_path_shuffle
-        img_labels = img_labels_shuffle
-        img_names = img_names_shuffle
-    # decode label to int
-    # label_encode = LabelEncoder().fit(labels)
-    # labels = label_encode.transform(labels).tolist()
+            img_labels_shuffle.append(img_labels[index])
 
-    return img_path, img_labels, img_names
+        img_names = img_names_shuffle
+        img_labels = img_labels_shuffle
+
+
+    return img_names, img_labels, class_map
 
 
 # protocol buffer(protobuf)
@@ -152,26 +221,7 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
-def serialize_example(label, image, filename):
-    """
-    create a tf.Example message to be written to a file
-    :param label: label info
-    :param image: image content
-    :param filename: image name
-    :return:
-    """
-    # create a dict mapping the feature name to the tf.Example compatible
-    feature = {
-        "label": _int64_feature(label),
-        "image": _bytes_feature(image),
-        "filename": _bytes_feature(filename)
-    }
-    # create a feature message using tf.train.Example
-    example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
-    return example_proto.SerializeToString()
-
-
-def image_example(label, image, img_length, img_width, img_depth, filename):
+def image_example(image, label, img_height, img_width, img_depth, filename):
     """
     create a tf.Example message to be written to a file
     :param label: label info
@@ -183,34 +233,19 @@ def image_example(label, image, img_length, img_width, img_depth, filename):
     # create a dict mapping the feature name to the tf.Example compatible
     # image_shape = tf.image.decode_jpeg(image_string).eval().shape
     feature = {
+        "image": _bytes_feature(image.tostring()),
         "label": _int64_feature(label),
-        "image_raw": _bytes_feature(image.tobytes()),
-        "height": _int64_feature(img_length),
+        "height": _int64_feature(img_height),
         "width": _int64_feature(img_width),
         "depth": _int64_feature(img_depth),
-        "filename": _bytes_feature(filename)
+        "filename": _bytes_feature(filename.encode())
     }
     # create a feature message using tf.train.Example
     example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
     return example_proto.SerializeToString()
 
 
-def tf_serialize_example(label, image, filename):
-    tf_string = tf.py_function(func=serialize_example,
-                               inp=(label, image, filename),
-                               Tout=tf.string)
-    # the result is scalar
-    return tf.reshape(tf_string, ())
-
-
-def decode_message(message):
-    """
-    decode message from string
-    :param message:
-    :return:
-    """
-    return tf.train.Example.FromString(message)
-
+#++++++++++++++++++++++++++++++++++++++++++tfrecord test++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 def tfrecord_test():
     """
@@ -256,11 +291,48 @@ def tfrecord_test():
     # img_shape = tf.image.decode_jpeg(byte_img)
     # print(image_example(1, byte_img, b'cat'))
 
+def serialize_example(label, image, filename):
+    """
+    create a tf.Example message to be written to a file
+    :param label: label info
+    :param image: image content
+    :param filename: image name
+    :return:
+    """
+    # create a dict mapping the feature name to the tf.Example compatible
+    feature = {
+        "label": _int64_feature(label),
+        "image": _bytes_feature(image),
+        "filename": _bytes_feature(filename)
+    }
+    # create a feature message using tf.train.Example
+    example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
+    return example_proto.SerializeToString()
+
+def tf_serialize_example(label, image, filename):
+    tf_string = tf.py_function(func=serialize_example,
+                               inp=(label, image, filename),
+                               Tout=tf.string)
+    # the result is scalar
+    return tf.reshape(tf_string, ())
+
+
+def decode_message(message):
+    """
+    decode message from string
+    :param message:
+    :return:
+    """
+    return tf.train.Example.FromString(message)
+
+
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++main+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 if __name__ == "__main__":
+
     image_names, labels, classes_name = get_label_data(train_path)
 
-    record_file = os.path.join(tfrecord_dir, 'image.tfrecords')
-    with tf.Session() as sess:
-        write_tfrecord(inputs_path=train_path, outputs_record_path=record_file, shuffle=True)
-        # show image
+    write_tfrecord(source_path=train_path, outputs_path=tfrecord_dir)
+
+
