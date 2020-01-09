@@ -89,9 +89,6 @@ def write_tfrecord(source_path, outputs_path, split_ratio=0.2, per_record_capaci
                                                                                            test_record_path))
 
 
-
-
-
 def image_to_record(save_path, img_name_list, labels_list=None, record_capacity=500):
     """
 
