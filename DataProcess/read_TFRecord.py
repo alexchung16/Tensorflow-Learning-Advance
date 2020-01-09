@@ -14,7 +14,7 @@ import tensorflow.contrib.slim as slim
 from tensorflow.python_io import tf_record_iterator
 
 # original_dataset_dir = '/home/alex/Documents/datasets/dogs_vs_cat_separate'
-original_dataset_dir = 'F:/datasets/dogs_vs_cat_separate'
+original_dataset_dir = '/home/alex/Documents/datasets/dogs_vs_cat_separate'
 tfrecord_dir = os.path.join(original_dataset_dir, 'tfrecord')
 
 train_path = os.path.join(original_dataset_dir, 'train')
@@ -30,9 +30,9 @@ def parse_example(serialized_sample, input_shape, class_depth):
 
     # construct feature description
     image_feature_description ={
+
+        "image": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
         "label": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
-        "image_raw": tf.io.FixedLenFeature(shape=[], dtype=tf.string),
-        # "shape": tf.io.FixedLenFeature(shape=[3], dtype=tf.int64),
         "height": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
         "width": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
         "depth": tf.io.FixedLenFeature(shape=[], dtype=tf.int64),
@@ -41,11 +41,12 @@ def parse_example(serialized_sample, input_shape, class_depth):
     feature = tf.io.parse_single_example(serialized=serialized_sample, features=image_feature_description)
 
     # parse feature
-    raw_img = tf.decode_raw(feature['image_raw'], tf.uint8)
+    raw_img = tf.decode_raw(feature['image'], tf.uint8)
     # shape = tf.cast(feature['shape'], tf.int32)
     height = tf.cast(feature['height'], tf.int32)
     width = tf.cast(feature['width'], tf.int32)
     depth = tf.cast(feature['depth'], tf.int32)
+
     image = tf.reshape(raw_img, [height, width, depth])
     label = tf.cast(feature['label'], tf.int32)
     filename = tf.cast(feature['filename'], tf.string)
@@ -67,11 +68,11 @@ def augmentation_image(input_image, image_shape, flip_lr=False, flit_ud=False, b
                        bright_delta=0.2, contrast=False, contrast_lower=0.5, contrast_up=1.5, hue=False,
                        hue_delta=0.2, saturation=False, saturation_low=0.5, saturation_up=1.5, standard=False):
     # enlarge image to same size
-    resize_img = tf.image.resize_images(images=input_image, size=(int(1.2*image_shape[0]), int(1.2*image_shape[1])))
+    resize_img = tf.image.resize(images=input_image, size=(int(1.2*image_shape[0]), int(1.2*image_shape[1])))
 
     try:
         # crop image
-        distort_img = tf.image.random_crop(value=resize_img, size=image_shape, seed=0)
+        distort_img = tf.image.random_crop(value=tf.cast(resize_img, tf.uint8), size=image_shape, seed=0)
         # flip image in left and right
         if flip_lr:
             distort_img = tf.image.random_flip_left_right(image=distort_img, seed=0)
@@ -108,9 +109,15 @@ def dataset_tfrecord(record_file, input_shape, class_depth, epoch=5, batch_size=
     :param record_file:
     :return:
     """
-
+    record_list = []
+    # check record file format
+    if os.path.isfile(record_file):
+        record_list = [record_file]
+    else:
+        for filename in os.listdir(record_file):
+            record_list.append(os.path.join(record_file, filename))
     # # use dataset read record file
-    raw_img_dataset = tf.data.TFRecordDataset([record_file])
+    raw_img_dataset = tf.data.TFRecordDataset(record_list)
     # execute parse function to get dataset
     # This transformation applies map_func to each element of this dataset,
     # and returns a new dataset containing the transformed elements, in the
@@ -175,19 +182,27 @@ def reader_tfrecord(record_file, input_shape, class_depth, batch_size=10, num_th
     return image, label, filename
 
 
-def get_num_samples(record_file):
+def get_num_samples(record_dir):
     """
     get tfrecord numbers
     :param record_file:
     :return:
     """
-    n_sapmle = 0
-    for record in tf_record_iterator(record_file):
-        n_sapmle += 1
-    return n_sapmle
+
+    record_list = []
+    # check record file format
+
+    for filename in os.listdir(record_dir):
+        record_list.append(os.path.join(record_dir, filename))
+
+    num_samples = 0
+    for record_file in record_list:
+        for record in tf_record_iterator(record_file):
+            num_samples += 1
+    return num_samples
 
 if __name__ == "__main__":
-    record_file = os.path.join(tfrecord_dir, 'image.tfrecords')
+    record_file = os.path.join(tfrecord_dir, 'train')
     image_batch, label_batch, filename = dataset_tfrecord(record_file=record_file, input_shape=[224, 224, 3],
                                                           class_depth=5)
     # create local and global variables initializer group
@@ -197,22 +212,9 @@ if __name__ == "__main__":
     )
     with tf.Session() as sess:
         sess.run(init_op)
-        # show image
-        # iterator = read_image(record_file)
-        # feature = sesconShape=Nones.run(iterator.get_next())
-        # raw_img = feature['image_raw']
-        # shape = feature['shape']
-        #
-        # img = np.fromstring(raw_img, dtype=np.uint8)
-        # img = np.reshape(img, shape)
-        # cv.imshow('cat0', img)
-        #
-        # cv.waitKey(0)
-        # image_batch, label_batch, filename= reader_tfrecord(record_file=record_file, input_shape=[224, 224, 3],
-        #                                                   class_depth=5)
-        # train_dataset = read_image(record_file, epoch=5, batch_size=20)
-        n_samples = get_num_samples(record_file)
-        print(n_samples)
+
+        num_samples = get_num_samples(record_file)
+        print('all sample size is {0}'.format(num_samples))
         # create Coordinator to manage the life period of multiple thread
         coord = tf.train.Coordinator()
         # Starts all queue runners collected in the graph to execute input queue operation
@@ -222,10 +224,7 @@ if __name__ == "__main__":
         try:
             if not coord.should_stop():
                 image_feed, label_feed = sess.run([image_batch, label_batch])
-                # print(len(image_batch.eval()))
-                # print(label_batch.eval())
                 plt.imshow(image_feed[0])
-                print(type(label_feed))
                 plt.show()
         except Exception as e:
             print(e)
