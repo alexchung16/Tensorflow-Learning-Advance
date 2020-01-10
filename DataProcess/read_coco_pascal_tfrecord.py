@@ -16,7 +16,7 @@ from tensorflow.python_io import tf_record_iterator
 
 
 # origin_dataset_dir = 'F:\datasets\Pascal VOC 2012\VOCdevkit\VOC2012'
-origin_dataset_dir = 'F:\datasets\Pascal VOC 2012\VOCdevkit_test'
+origin_dataset_dir = '/home/alex/Documents/datasets/Pascal_VOC_2012/VOCtrainval/VOCdevkit_test'
 tfrecord_dir = os.path.join(origin_dataset_dir, 'tfrecords')
 
 _R_MEAN = 123.68
@@ -153,7 +153,45 @@ def random_flip_left_right(img_tensor, gtboxes_and_label):
                                             lambda: (img_tensor, gtboxes_and_label))
     return img_tensor,  gtboxes_and_label
 
-def reader_tfrecord(record_file, shortside_len, batch_size=10, num_threads=2, epoch=5, shuffle=True, is_training=False):
+
+def dataset_tfrecord(record_file, shortside_len, batch_size=1, epoch=5, shuffle=True, is_training=False):
+    """
+    construct iterator to read image
+    :param record_file:
+    :return:
+    """
+    record_list = []
+    # check record file format
+    if os.path.isfile(record_file):
+        record_list = [record_file]
+    else:
+        for filename in os.listdir(record_file):
+            record_list.append(os.path.join(record_file, filename))
+    # # use dataset read record file
+    record_dataset = tf.data.TFRecordDataset(record_list)
+    # execute parse function to get dataset
+    # This transformation applies map_func to each element of this dataset,
+    # and returns a new dataset containing the transformed elements, in the
+    # same order as they appeared in the input.
+    # when parse_example has only one parameter (office recommend)
+    # parse_img_dataset = raw_img_dataset.map(parse_example)
+    # when parse_example has more than one parameter which used to process data
+    parse_img_dataset = record_dataset.map(lambda series_record:
+                                            read_parse_single_example(serialized_sample = series_record,
+                                                                      shortside_len=shortside_len,
+                                                                      is_training=is_training))
+    # get dataset batch
+    if shuffle:
+        shuffle_batch_dataset = parse_img_dataset.shuffle(buffer_size=batch_size*4).repeat(epoch).batch(batch_size=batch_size)
+    else:
+        shuffle_batch_dataset = parse_img_dataset.repeat(epoch).batch(batch_size=batch_size)
+    # make dataset iterator
+    image, filename, gtboxes_and_label, num_objects = shuffle_batch_dataset.make_one_shot_iterator().get_next()
+
+    return image, filename, gtboxes_and_label, num_objects
+
+
+def reader_tfrecord(record_file, shortside_len, batch_size=1, num_threads=2, epoch=5, shuffle=True, is_training=False):
     """
     read and sparse TFRecord
     :param record_file:
@@ -192,7 +230,10 @@ if __name__ == "__main__":
 
     record_file = os.path.join(tfrecord_dir, 'train.tfrecord')
     # create local and global variables initializer group
-    image, filename, gtboxes_and_label, num_objects = reader_tfrecord(record_file=tfrecord_dir,
+    # image, filename, gtboxes_and_label, num_objects = reader_tfrecord(record_file=tfrecord_dir,
+    #                                                                   shortside_len=IMG_SHORT_SIDE_LEN,
+    #                                                                   is_training=True)
+    image, filename, gtboxes_and_label, num_objects = dataset_tfrecord(record_file=tfrecord_dir,
                                                                       shortside_len=IMG_SHORT_SIDE_LEN,
                                                                       is_training=True)
     init_op = tf.group(
