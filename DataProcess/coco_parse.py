@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #------------------------------------------------------
 # @ File       : coco_parse.py
-# @ Description:  
+# @ Description: reference https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoDemo.ipynb
 # @ Author     : Alex Chung
 # @ Contact    : yonganzhong@outlook.com
 # @ License    : Copyright (c) 2017-2018
@@ -98,6 +98,8 @@ if __name__ == "__main__":
     coco_caps.showAnns(anns)
 
     plt.show()
+
+
 
 
 
