@@ -40,7 +40,8 @@ if __name__ == "__main__":
     coco = COCO(instance_dir)
 
     #++++++++++++++++++++++++++++display coco dataset info++++++++++++++++++++++++++++++++++++++++++++
-    coco.info()
+
+    print(coco.info())
     # description: COCO 2017 Dataset
     # url: http://cocodataset.org
     # version: 1.0
@@ -48,9 +49,12 @@ if __name__ == "__main__":
     # contributor: COCO Consortium
     # date_created: 2017/09/01
 
+    coco_dataset = coco.dataset
+    print(coco_dataset.keys()) # dict_keys(['info', 'licenses', 'images', 'annotations', 'categories'])
     #++++++++++++++++++++++++++display coco categories and super categories++++++++++++++++++++++++++++
 
     cate_id = coco.getCatIds()
+    print(coco_dataset['categories'])
     print(cate_id)
     categories_info = coco.loadCats(cate_id)
     print(categories_info)
