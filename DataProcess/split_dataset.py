@@ -23,8 +23,9 @@ keypoint_dir = '{0}/annotations_trainval2017/annotations/person_keypoints_{1}.js
 caption_dir = '{0}/annotations_trainval2017/annotations/captions_{1}.json'.format(dataset_dir, data_type)
 
 sub_coco = '/home/alex/Documents/dataset/COCO_2017/sub_coco'
+new_sub_coco = '/home/alex/Documents/dataset/COCO_2017/new_sub_coco'
 sub_annotations = os.path.join(sub_coco, 'Annotations')
-sub_images = os.path.join(sub_coco, 'Images')
+sub_images = os.path.join(new_sub_coco, 'Images')
 
 def makedir(path):
     """
@@ -74,9 +75,9 @@ def split_pascal(origin_path, split_rate=0.8):
     print('Total of {0} data split to {1}'.format(len(test_image), os.path.join(dir_path, dir_name + '_test')))
 
 
-#++++++++++++++++++++++++++++++++++++++++split coco++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#+++++++++++++++++++++++++++++++++++++++++++++split coco+++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-def split_coco(imgs_path, annotaions_path, dst_dir, per_cate_base_num=2):
+def split_coco(imgs_path, annotaions_path, dst_dir, num_catetory=20, per_cate_base_num=18):
     """
 
     :param origin_path:
@@ -92,14 +93,14 @@ def split_coco(imgs_path, annotaions_path, dst_dir, per_cate_base_num=2):
 
     anns, cats, imgs, img_anns, cate_imgs = create_index(dataset)
 
-    img_id_list = get_img_per_categorise(cate_imgs, per_cate_base_num)
+    img_id_list, category_id = get_img_per_categorise(cate_imgs, num_catetory, per_cate_base_num)
 
-    img_name_list = []
+    img_name_dict = {}
     for i, img_id in enumerate(img_id_list):
-        img_name_list.append('0' * (12 - len(str(img_id))) + '{0}.jpg'.format(img_id))
+        img_name_dict[img_id] = '0' * (12 - len(str(img_id))) + '{0}.jpg'.format(img_id)
 
     #----------------------------write annotaion info-----------------------------------
-    images_list, annotations_list = get_images_annotaion_info(img_id_list, imgs, img_anns)
+    images_list, annotations_list = get_images_annotaion_info(img_id_list, imgs, img_anns, category_id)
     new_dataset = defaultdict(list)
     new_dataset['info'] = dataset['info']
     new_dataset['licenses'] = dataset['licenses']
@@ -116,9 +117,9 @@ def split_coco(imgs_path, annotaions_path, dst_dir, per_cate_base_num=2):
 
     #---------------------------------remove image---------------------------------------
     makedir(sub_img_path)
-    for i, img_name in enumerate(img_name_list):
-        shutil.copy(os.path.join(imgs_path, img_name), os.path.join(sub_img_path, img_name))
-    print('Successful copy the number of {0} images to {1}'.format(len(img_name_list), sub_img_path))
+    for img_id, img_name in img_name_dict.items():
+        shutil.copy(os.path.join(imgs_path, img_name), os.path.join(sub_img_path, str(img_id)))
+    print('Successful copy the number of {0} images to {1}'.format(len(img_name_dict), sub_img_path))
 
 
 def create_index(dataset):
@@ -155,7 +156,7 @@ def create_index(dataset):
     # for i, img_name in enumerate(img_name):
     #     img_list.append(int(img_name.replace('0', '').split('.')[0]))
 
-def get_img_per_categorise(cate_imgs, per_cate_base_num=2):
+def get_img_per_categorise(category_imgs, num_category=20, per_cate_base_num=18):
     """
     get image id according to per categorise has equal num
     :param cate_img:
@@ -163,9 +164,17 @@ def get_img_per_categorise(cate_imgs, per_cate_base_num=2):
     :return:
     """
     base_num = per_cate_base_num
+    np.random.seed(0)
+    random_index = list(np.random.permutation(len(category_imgs)))
+
+    categories_id = []
+    for i, index in enumerate(random_index):
+        categories_id.append((list(category_imgs.keys())[index]))
+
     img_id_list = []
-    for cate_id, imgs_id in cate_imgs.items():
-        for img_id in imgs_id:
+    categories_id = categories_id[:num_category]
+    for index, category_id in enumerate(categories_id):
+        for img_id in category_imgs[category_id]:
             if base_num != 0:
                 if img_id not in img_id_list:
                     img_id_list.append(img_id)
@@ -174,9 +183,9 @@ def get_img_per_categorise(cate_imgs, per_cate_base_num=2):
                 base_num = per_cate_base_num
                 break
 
-    return img_id_list
+    return img_id_list, categories_id
 
-def get_images_annotaion_info(img_id_list, imgs_raw, img_anns_raw):
+def get_images_annotaion_info(img_id_list, imgs_raw, img_anns_raw, category_id):
     """
 
     :param img_id_list:
@@ -195,12 +204,14 @@ def get_images_annotaion_info(img_id_list, imgs_raw, img_anns_raw):
             continue
         else:
             for i, annotation in enumerate(img_annotations):
-                annotation['id'] = annotation_index
-                annotations_list.append(annotation)
-                annotation_index += 1
+                if annotation['category_id'] in category_id:
+                    annotation['id'] = annotation_index
+                    annotations_list.append(annotation)
+                    annotation_index += 1
         images_list.append(img_info)
 
     return images_list, annotations_list
+
 
 
 
@@ -218,9 +229,18 @@ if __name__ == "__main__":
     print(dataset.keys())
     print(len(dataset['images']))
     annotations = dataset['annotations']
-    print(len(annotations))
+    print(annotations[0])
+    categories = dataset['categories']
+    print(categories)
+    split_coco(img_dir, instance_dir, new_sub_coco)
 
-    split_coco(img_dir, instance_dir, sub_coco)
+
+    # test split result
+    # new_annotation_path = '/home/alex/Documents/dataset/COCO_2017/new_sub_coco/Annotations/instances.json'
+    # dataset = json.load(open(new_annotation_path, 'r'))
+    # anns, cats, imgs, img_anns, cate_imgs = create_index(dataset)
+    # print(len(cate_imgs))
+
 
 
 
