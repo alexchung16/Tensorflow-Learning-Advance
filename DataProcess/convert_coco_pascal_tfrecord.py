@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @ File coco_pascal_tfrecord.py
+# @ File convert_coco_pascal_tfrecord.py
 # @ Description :
 # @ Author alexchung
 # @ Time 10/12/2019 PM 17:05
@@ -71,13 +71,40 @@ def makedir(path):
         except Exception as e:
             print(e)
 
+# ------------------------------------------convert pascal to tfrecord-----------------------------------------------
+def convert_pascal_to_tfrecord(image_path, xml_path, save_path):
+    """
+    convert pascal dataset to rfrecord
+    :param img_dir:
+    :param annotation_dir:
+    :return: None
+    """
+    # record_file = os.path.join(FLAGS.save_dir, FLAGS.save_name+'.tfrecord')
+    makedir(save_path)
+    write = tf.io.TFRecordWriter(save_path)
 
-def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+    num_samples = 0
+    for n, xml in enumerate(glob.glob(os.path.join(xml_path, '*.xml'))):
+        img_name = os.path.basename(xml).split('.')[0] + FLAGS.img_format
+        img_path = os.path.join(image_path, img_name)
+        if not os.path.exists(img_path):
+            print('{} is not exist!'.format(img_path))
+            continue
+        try:
+            img_height, img_width, gtbox_label = read_xml_gtbox_and_label(xml)
+            # note image channel format of opencv if rgb
+            bgr_image = cv.imread(img_path)
+            # BGR TO RGB
+            rgb_image = cv. cvtColor(bgr_image, cv.COLOR_BGR2RGB)
 
-
-def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+            image_record = serialize_example(image=rgb_image, img_height=img_height, img_width=img_width, img_depth=3,
+                                             filename=img_name, gtbox_label=gtbox_label)
+            write.write(record=image_record)
+            num_samples += 1
+        except Exception as e:
+            print(e)
+    write.close()
+    print('There are {0} samples convert to {1}'.format(num_samples, save_path))
 
 
 def read_xml_gtbox_and_label(xml_path):
@@ -132,57 +159,7 @@ def read_xml_gtbox_and_label(xml_path):
     return img_height, img_width, gtbox_label
 
 
-def convert_pascal_to_tfrecord(image_path, xml_path, save_path):
-    """
-    convert pascal dataset to rfrecord
-    :param img_dir:
-    :param annotation_dir:
-    :return: None
-    """
-    # record_file = os.path.join(FLAGS.save_dir, FLAGS.save_name+'.tfrecord')
-    makedir(save_path)
-    write = tf.io.TFRecordWriter(save_path)
-
-    num_samples = 0
-    for n, xml in enumerate(glob.glob(os.path.join(xml_path, '*.xml'))):
-        img_name = os.path.basename(xml).split('.')[0] + FLAGS.img_format
-        img_path = os.path.join(image_path, img_name)
-        if not os.path.exists(img_path):
-            print('{} is not exist!'.format(img_path))
-            continue
-        try:
-            img_height, img_width, gtbox_label = read_xml_gtbox_and_label(xml)
-            # note image channel format of opencv if rgb
-            bgr_image = cv.imread(img_path)
-            # BGR TO RGB
-            rgb_image = cv. cvtColor(bgr_image, cv.COLOR_BGR2RGB)
-
-            image_record = serialize_example(image=rgb_image, img_height=img_height, img_width=img_width, img_depth=3,
-                                             filename=img_name, gtbox_label=gtbox_label)
-            write.write(record=image_record)
-            num_samples += 1
-        except Exception as e:
-            print(e)
-    write.close()
-    print('There are {0} samples convert to {1}'.format(num_samples, save_path))
-
-
-def read_json_gtbox_label(img_anns):
-    """
-
-    :param dataset_dict:
-    :param img_id:
-    :return:
-    """
-    gtbox_label = np.zeros((0, 5))
-    for annotation in img_anns:
-        bbox = annotation['bbox']
-        label = annotation['category_id']
-        bbox.append(label)
-        gtbox_label = np.vstack((gtbox_label, bbox))
-
-    return gtbox_label
-
+# --------------------------------------------convert coco to tfrecord------------------------------------------------
 def convert_coco_to_tfrecord(src_path, save_path):
     """
 
@@ -200,44 +177,45 @@ def convert_coco_to_tfrecord(src_path, save_path):
     annotation_list = glob.glob(os.path.join(anns_path, '*.json'))
 
     num_samples = 0
-    for annotation_path in annotation_list:
-        dataset = json.load(open(annotation_path, 'r'))
-        anns, cats, imgs, img_anns, cate_imgs = create_index(dataset)
 
-        for img_id, img_annotations in img_anns.items():
 
-            # get gtbox_label
-            gtbox_label = read_json_gtbox_label(img_annotations)
+    anns, cats, imgs, img_anns, cate_imgs = create_index(annotation_list[0])
 
-            # get image
-            img_name = '0'*(12 - len(str(img_id))) + '{0}.jpg'.format(img_id)
-            img_path = os.path.join(imgs_path, img_name)
+    for img_id, img_annotations in img_anns.items():
 
-            try:
-                bgr_image = cv.imread(img_path)
-                # BGR TO RGB
-                rgb_image = cv.cvtColor(bgr_image, cv.COLOR_BGR2RGB)
-                img_height = rgb_image.shape[0]
-                img_width = rgb_image.shape[1]
+        # get gtbox_label
+        gtbox_label = read_json_gtbox_label(img_annotations)
 
-                image_record = serialize_example(image=rgb_image, img_height=img_height, img_width=img_width,
-                                                 img_depth=3,
-                                                 filename=img_name, gtbox_label=gtbox_label)
-                write.write(record=image_record)
-                num_samples += 1
+        # get image
+        img_name = '0'*(12 - len(str(img_id))) + '{0}.jpg'.format(img_id)
+        img_path = os.path.join(imgs_path, img_name)
 
-            except Exception as e:
-                print(e)
-                continue
+        try:
+            bgr_image = cv.imread(img_path)
+            # BGR TO RGB
+            rgb_image = cv.cvtColor(bgr_image, cv.COLOR_BGR2RGB)
+            img_height = rgb_image.shape[0]
+            img_width = rgb_image.shape[1]
+
+            image_record = serialize_example(image=rgb_image, img_height=img_height, img_width=img_width,
+                                             img_depth=3,
+                                             filename=img_name, gtbox_label=gtbox_label)
+            write.write(record=image_record)
+            num_samples += 1
+
+        except Exception as e:
+            print(e)
+            continue
     write.close()
     print('There are {0} samples convert to {1}'.format(num_samples, save_path))
 
-def create_index(dataset):
+def create_index(json_path):
     """
     create index
     :param dataset:
     :return:
     """
+    dataset = json.load(open(json_path, 'r'))
     print('creating index...')
     anns, cats, imgs = {}, {}, {}
     img_anns, cate_imgs = defaultdict(list), defaultdict(list)
@@ -261,6 +239,22 @@ def create_index(dataset):
 
     return anns, cats, imgs, img_anns, cate_imgs
 
+def read_json_gtbox_label(img_anns):
+    """
+
+    :param dataset_dict:
+    :param img_id:
+    :return:
+    """
+    gtbox_label = np.zeros((0, 5))
+    for annotation in img_anns:
+        bbox = annotation['bbox']
+        label = annotation['category_id']
+        bbox.append(label)
+        gtbox_label = np.vstack((gtbox_label, bbox))
+
+    return gtbox_label
+
 def serialize_example(image, img_height, img_width, img_depth, filename, gtbox_label):
     """
     create a tf.Example message to be written to a file
@@ -283,6 +277,13 @@ def serialize_example(image, img_height, img_width, img_depth, filename, gtbox_l
     # create a feature message using tf.train.Example
     example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
     return example_proto.SerializeToString()
+
+def _int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
 if __name__ == "__main__":
