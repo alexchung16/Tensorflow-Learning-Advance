@@ -118,7 +118,7 @@ def split_coco(imgs_path, annotaions_path, dst_dir, num_catetory=20, per_cate_ba
     #---------------------------------remove image---------------------------------------
     makedir(sub_img_path)
     for img_id, img_name in img_name_dict.items():
-        shutil.copy(os.path.join(imgs_path, img_name), os.path.join(sub_img_path, str(img_id)))
+        shutil.copy(os.path.join(imgs_path, img_name), os.path.join(sub_img_path, '{0}.jpg'.format(img_id)))
     print('Successful copy the number of {0} images to {1}'.format(len(img_name_dict), sub_img_path))
 
 
@@ -211,8 +211,6 @@ def get_images_annotaion_info(img_id_list, imgs_raw, img_anns_raw, category_id):
         images_list.append(img_info)
 
     return images_list, annotations_list
-
-
 
 
 if __name__ == "__main__":
