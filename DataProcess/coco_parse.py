@@ -54,17 +54,20 @@ if __name__ == "__main__":
     #++++++++++++++++++++++++++display coco categories and super categories++++++++++++++++++++++++++++
 
     cate_id = coco.getCatIds()
-    print(coco_dataset['categories'])
-    print(cate_id)
+    print('categories: ', coco_dataset['categories'])
+    print('-' * 40)
+    print('cate id: ', cate_id)
+    print('-' * 40)
     categories_info = coco.loadCats(cate_id)
-    print(categories_info)
-
+    print('categories info: ', categories_info)
+    print('-' * 40)
     super_categories = set([cate['supercategory'] for cate in categories_info])
     sub_categories = [cate.pop('supercategory') for cate in categories_info]
 
-    print(sub_categories)
-    print(super_categories)
-
+    print('sub categories: ', sub_categories)
+    print('-' * 40)
+    print('super categories: ', super_categories)
+    print('-' * 40)
     #+++++++++++++++++++++++++get all image contain given categories+++++++++++++++++++++++++++++++++++++++
 
     cate_id = coco.getCatIds(catNms=['person', 'vehicle', 'skateboard'])
