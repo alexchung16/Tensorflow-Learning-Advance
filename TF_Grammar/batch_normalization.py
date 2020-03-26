@@ -60,9 +60,9 @@ if __name__ == "__main__":
                                    trainable=False)
 
     axis = list(range(len(img_batch.shape) - 1))  # [0, 1, 2]
-    # print(axis.eval())
+
+    # calculate mean and variance
     mean, variance = tf.nn.moments(x=tf.cast(img_batch, dtype=tf.float32), axes=axis, name='moment')
-    print('mean: {0}  variance: {1}'.format(mean, variance))
 
     # => variable * decay + value * (1 - decay) = 0
     # => variable -= (1 - decay) * (variable - value)
@@ -82,7 +82,9 @@ if __name__ == "__main__":
         )
         sess.run(init)
 
-        bn_image = sess.run(bn_image)
+        mean, variance, bn_image = sess.run([mean, variance, bn_image])
+
+        print('mean: {0}  variance: {1}'.format(mean, variance))
         print(img_batch, bn_image)
 
     sess.close()
