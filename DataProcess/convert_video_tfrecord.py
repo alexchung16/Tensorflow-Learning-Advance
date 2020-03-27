@@ -47,7 +47,7 @@ def get_video_length(video_path):
 
     return length
 
-def get_rgb_flow(video_path, epsilon=1e-5):
+def get_rgb_flow(video_path,  sample_frames = None, epsilon=1e-5):
     """
     compute optical flow with DualTVL1 algorithm
     :param video_path:
@@ -57,6 +57,18 @@ def get_rgb_flow(video_path, epsilon=1e-5):
     rgb_videos = []
     flow_videos = []
 
+    # get size of video frames
+    video_length = get_video_length(video_path)
+
+
+    if sample_frames is not None:
+        start_frame  = np.random.randint(0, (video_length - sample_frames - 2))
+        end_frame = start_frame + sample_frames
+    else:
+        start_frame = 0
+        end_frame = video_length - 2
+
+
     TVL1 = cv.optflow.DualTVL1OpticalFlow_create()
 
     cap = cv.VideoCapture(video_path)
@@ -65,30 +77,34 @@ def get_rgb_flow(video_path, epsilon=1e-5):
 
     pre_gray = cv.cvtColor(pre_frame, cv.COLOR_BGR2GRAY)
 
-    # get size of video frames
-    video_length = get_video_length(video_path)
-    for _ in range(video_length - 2):
-        # convert image channel from BGR to RGB
-        rgb_videos.append(cv.cvtColor(pre_frame, cv.COLOR_BGR2RGB))
-        # calculate optical flow
+    for index in range(end_frame):
+
         cur_ret, cur_frame = cap.read()
         cur_gray = cv.cvtColor(cur_frame, cv.COLOR_BGR2GRAY)
-        cur_flow = TVL1.calc(pre_gray, cur_gray, None)
-        assert cur_flow.dtype == np.float32
-        # truncate [-20, 20]
-        cur_flow[cur_flow > 20] = 20
-        cur_flow[cur_flow < -20] =-20
-        # scale to [-1, 1]
-        max_val = lambda x: max(max(x.flatten()), abs(min(x.flatten())))
-        cur_flow = cur_flow / (max_val(cur_flow) + epsilon)
-        flow_videos.append(cur_flow)
+
+        if index < start_frame:
+            continue
+        else:
+            # convert image channel from BGR to RGB
+            rgb_videos.append(cv.cvtColor(pre_frame, cv.COLOR_BGR2RGB))
+            # calculate optical flow
+            cur_flow = TVL1.calc(pre_gray, cur_gray, None)
+            assert cur_flow.dtype == np.float32
+            # truncate [-20, 20]
+            cur_flow[cur_flow > 20] = 20
+            cur_flow[cur_flow < -20] =-20
+            # scale to [-1, 1]
+            max_val = lambda x: max(max(x.flatten()), abs(min(x.flatten())))
+            cur_flow = cur_flow / (max_val(cur_flow) + epsilon)
+            flow_videos.append(cur_flow)
         pre_frame, pre_gray = cur_frame, cur_gray
     cap.release()
 
     return np.array(rgb_videos), np.array(flow_videos)
 
 # -----------------------------------------convert arg and flow to tfrecord--------------------------------------
-def execute_convert_tfrecord(source_path, outputs_path, split_ratio=0.2, per_record_capacity=500, shuffle=True):
+def execute_convert_tfrecord(source_path, outputs_path, sample_frames=None, split_ratio=0.2, per_record_capacity=500,
+                             shuffle=True):
     """
 
     :param source_path:
@@ -116,19 +132,21 @@ def execute_convert_tfrecord(source_path, outputs_path, split_ratio=0.2, per_rec
 
     video_to_record(save_path=train_record_path,
                     video_name_list=train_name_list,
+                    sample_frames=sample_frames,
                     labels_list=train_labels_list,
                     record_capacity=per_record_capacity)
     print("There are {0} samples has successfully convert to tfrecord, save at {1}".format(train_data_num,
                                                                                            train_record_path))
     video_to_record(save_path=test_record_path,
                     video_name_list=test_name_list,
+                    sample_frames=sample_frames,
                     labels_list=test_labels_list,
                     record_capacity=per_record_capacity)
     print("There are {0} samples has successfully convert to tfrecord, save at {1}".format(test_data_num,
                                                                                            test_record_path))
 
 
-def video_to_record(save_path, video_name_list, labels_list=None, record_capacity=50):
+def video_to_record(save_path, video_name_list, sample_frames=None, labels_list=None, record_capacity=50):
     """
 
     :param save_path:
@@ -150,7 +168,7 @@ def video_to_record(save_path, video_name_list, labels_list=None, record_capacit
     else:
         num_record = int(len(video_name_list) / record_capacity) + 1
 
-    count = 0
+    count = 1
     for index in range(num_record):
         record_filename = os.path.join(save_path, 'tfrecord-{0}.record'.format(index))
         writer = tf.io.TFRecordWriter(record_filename)
@@ -162,21 +180,25 @@ def video_to_record(save_path, video_name_list, labels_list=None, record_capacit
             sub_label_list = labels_list[(index * record_capacity): (index * record_capacity + remainder_num)]
 
         for video_name, label in zip(sub_img_name_list, sub_label_list):
-            rgb_video, flow_video =  get_rgb_flow(video_name)
+            try:
+                rgb_video, flow_video =  get_rgb_flow(video_name, sample_frames)
 
-            rgb_frames = rgb_video.shape[0]
-            flow_frames = flow_video.shape[0]
-            height = rgb_video.shape[1]
-            width = rgb_video.shape[2]
-            rgb_depth = rgb_video.shape[3]
-            flow_depth = flow_video.shape[3]
+                rgb_frames = rgb_video.shape[0]
+                flow_frames = flow_video.shape[0]
+                height = rgb_video.shape[1]
+                width = rgb_video.shape[2]
+                rgb_depth = rgb_video.shape[3]
+                flow_depth = flow_video.shape[3]
 
-            image_record = serialize_example(rgb_video, flow_video,  label, rgb_frames, flow_frames, height, width,
-                                             rgb_depth, flow_depth, video_name)
-            writer.write(record=image_record)
-            count += 1
-            view_bar(message='Conversion progress', num=count, total=len(video_name_list))
+                image_record = serialize_example(rgb_video, flow_video,  label, rgb_frames, flow_frames, height, width,
+                                                 rgb_depth, flow_depth, video_name)
+                writer.write(record=image_record)
+                view_bar(message='Conversion progress', num=count, total=len(video_name_list))
+                count += 1
 
+            except Exception as e:
+                print('Failed convert {0} , Please Check the samples whether exist or correct format'.format(video_name))
+                continue
         writer.close()
 
     return True
@@ -270,7 +292,6 @@ def _bytes_feature(value):
 
 
 
-
 if __name__ == "__main__":
 
     # def execute_tfrecord(args):
@@ -281,4 +302,4 @@ if __name__ == "__main__":
     # pool = Pool(2)
     # pool.map(execute_tfrecord, zip(FLAGS.dataset_dir, FLAGS.save_dir))
 
-    execute_convert_tfrecord(source_path=FLAGS.dataset_dir, outputs_path=FLAGS.save_dir)
+    execute_convert_tfrecord(source_path=FLAGS.dataset_dir, outputs_path=FLAGS.save_dir, sample_frames=10)
