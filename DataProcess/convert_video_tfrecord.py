@@ -19,13 +19,14 @@ from multiprocessing import Pool
 
 from Util.tools import view_bar, makedir
 
-video_dataset_dir = '/home/alex/Documents/dataset/bike_raft'
-video_tfrecord_dir = os.path.join(video_dataset_dir, 'tfrecords')
+video_dir = '/home/alex/Documents/dataset/video_binary'
+dataset_dir = os.path.join(video_dir, 'bike_raft')
+tfrecord_dir = os.path.join(video_dir, 'tfrecords')
 
 
 flags = tf.app.flags
-flags.DEFINE_string('dataset_dir', video_dataset_dir, 'Voc dir')
-flags.DEFINE_string('save_dir', video_tfrecord_dir, 'save directory')
+flags.DEFINE_string('dataset_dir', dataset_dir, 'Voc dir')
+flags.DEFINE_string('save_dir', tfrecord_dir, 'save directory')
 flags.DEFINE_string('save_name', 'train', 'save name')
 FLAGS = flags.FLAGS
 
@@ -39,10 +40,12 @@ def get_video_length(video_path):
     """
     cap = cv.VideoCapture(video_path)
 
+    # check the video available
     if not cap.isOpened():
-        raise ValueError('Could not open the file.\n{0}'.format(video_path))
-    CAP_PROP_FRAME_COUNT = cv.CAP_PROP_FRAME_COUNT
+        # raise ValueError('Could not open the file.\n{0}'.format(video_path))
+        print('Could not open the file.\n{0}'.format(video_path))
 
+    CAP_PROP_FRAME_COUNT = cv.CAP_PROP_FRAME_COUNT
     length = int(cap.get(CAP_PROP_FRAME_COUNT))
 
     return length
@@ -59,7 +62,6 @@ def get_rgb_flow(video_path,  sample_frames = None, epsilon=1e-5):
 
     # get size of video frames
     video_length = get_video_length(video_path)
-
 
     if sample_frames is not None:
         start_frame  = np.random.randint(0, (video_length - sample_frames - 2))
@@ -135,18 +137,18 @@ def execute_convert_tfrecord(source_path, outputs_path, sample_frames=None, spli
                     sample_frames=sample_frames,
                     labels_list=train_labels_list,
                     record_capacity=per_record_capacity)
-    print("There are {0} samples has successfully convert to tfrecord, save at {1}".format(train_data_num,
+    print("\nThere are {0} samples has successfully convert to tfrecord, save at {1}".format(train_data_num,
                                                                                            train_record_path))
     video_to_record(save_path=test_record_path,
                     video_name_list=test_name_list,
                     sample_frames=sample_frames,
                     labels_list=test_labels_list,
                     record_capacity=per_record_capacity)
-    print("There are {0} samples has successfully convert to tfrecord, save at {1}".format(test_data_num,
+    print("\nThere are {0} samples has successfully convert to tfrecord, save at {1}".format(test_data_num,
                                                                                            test_record_path))
 
 
-def video_to_record(save_path, video_name_list, sample_frames=None, labels_list=None, record_capacity=50):
+def video_to_record(save_path, video_name_list, sample_frames=None, labels_list=None, record_capacity=500):
     """
 
     :param save_path:
@@ -197,7 +199,7 @@ def video_to_record(save_path, video_name_list, sample_frames=None, labels_list=
                 count += 1
 
             except Exception as e:
-                print('Failed convert {0} , Please Check the samples whether exist or correct format'.format(video_name))
+                print('\nFailed convert {0} , Please Check the samples whether exist or correct format'.format(video_name))
                 continue
         writer.close()
 
@@ -228,7 +230,7 @@ def get_video_label_info(data_path, classes_map=None, shuffle=True):
         class_dir = os.path.join(data_path, class_name)
         video_list = os.listdir(class_dir)
 
-        for video_name in video_list:
+        for index, video_name in enumerate(video_list):
             video_names.append(os.path.join(class_dir, video_name))
             video_labels.append(class_label)
 
@@ -302,4 +304,5 @@ if __name__ == "__main__":
     # pool = Pool(2)
     # pool.map(execute_tfrecord, zip(FLAGS.dataset_dir, FLAGS.save_dir))
 
-    execute_convert_tfrecord(source_path=FLAGS.dataset_dir, outputs_path=FLAGS.save_dir, sample_frames=10)
+    execute_convert_tfrecord(source_path=FLAGS.dataset_dir, outputs_path=FLAGS.save_dir, sample_frames=10,
+                             per_record_capacity=100)
