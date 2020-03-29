@@ -18,14 +18,15 @@ import matplotlib.pyplot as plt
 from tensorflow.python_io import tf_record_iterator
 
 # original_dataset_dir = '/home/alex/Documents/datasets/dogs_vs_cat_separate'
-original_dataset_dir = '/home/alex/Documents/dataset/bike_raft'
-tfrecord_dir = os.path.join(original_dataset_dir, 'tfrecord')
+original_dataset_dir = '/home/alex/Documents/dataset/video_binary'
+tfrecord_dir = os.path.join(original_dataset_dir, 'tfrecords')
 
 train_path = os.path.join(original_dataset_dir, 'train')
 test_path = os.path.join(original_dataset_dir, 'test')
 
 
-def parse_example(serialized_sample, clip_size, target_shape, class_depth):
+# def parse_example(serialized_sample, clip_size, target_shape, class_depth, is_training=False):
+def parse_example(serialized_sample, class_depth, is_training=False):
     """
     parse tensor
     :param image_sample:
@@ -54,7 +55,6 @@ def parse_example(serialized_sample, clip_size, target_shape, class_depth):
     # shape = tf.cast(feature['shape'], tf.int32)
     height = tf.cast(feature['height'], tf.int32)
     width = tf.cast(feature['width'], tf.int32)
-    depth = tf.cast(feature['depth'], tf.int32)
     rgb_depth = tf.cast(feature['rgb_depth'], tf.int32)
     flow_depth = tf.cast(feature['flow_depth'], tf.int32)
     rgb_frames = tf.cast(feature['rgb_frames'], tf.int32)
@@ -62,7 +62,7 @@ def parse_example(serialized_sample, clip_size, target_shape, class_depth):
     label = tf.cast(feature['label'], tf.int32)
 
     rgb_video = tf.reshape(rgb_video, [rgb_frames, height, width, rgb_depth])
-    flow_video = tf.reshape(flow_video, [rgb_frames, height, width, flow_depth])
+    flow_video = tf.reshape(flow_video, [flow_frames, height, width, flow_depth])
 
     filename = tf.cast(feature['filename'], tf.string)
     # resize image shape
@@ -72,10 +72,10 @@ def parse_example(serialized_sample, clip_size, target_shape, class_depth):
     # second step dataset operation
 
     # image augmentation
-    rgb_video = video_process(input_video=rgb_video, clip_size=clip_size, target_shape=target_shape, mode='rgb',
-                              is_training=False)
-    flow_video = video_process(input_video=flow_video, clip_size=clip_size, target_shape=target_shape, mode='flow',
-                               is_training=False)
+    # rgb_video = video_process(input_video=rgb_video, clip_size=clip_size, target_shape=target_shape, mode='rgb',
+    #                           is_training=is_training)
+    # flow_video = video_process(input_video=flow_video, clip_size=clip_size, target_shape=target_shape, mode='flow',
+    #                            is_training=is_training)
     # onehot label
     label = tf.one_hot(indices=label, depth=class_depth)
 
@@ -94,28 +94,43 @@ def video_process(input_video, clip_size, target_shape, mode='rgb', is_training=
     """
 
     # enlarge image to same size
+    # squeeze batch dimension
+    input_video = tf.squeeze(input_video, axis=0)
     try:
-        shape = input_video.get_sahpe()
-        frames, height, width, depth = shape[0], shape[1], shape[2], shape[3]
+        shape = input_video.get_shape()
+        frames, height, width, depth = int(shape[0]), int(shape[1]), int(shape[2]), int(shape[3])
 
+        # frames = tf.to_float(frames)
+        # clip_size = tf.convert_to_tensor(clip_size, dtype=tf.float32)
+        # start_frame, end_frame = tf.cond(tf.greater(frames, clip_size),
+        #                                  true_fn=
+        #                                  lambda : (tf.random.uniform(shape=[], minval=0, maxval=(frames - clip_size -1)),
+        #                                            start_frame +  clip_size),
+        #                                  false_fn= lambda : (0, start_frame + frames))
         if clip_size < frames:
-            start_frame = np.random.randint(0, frames - clip_size -1)
+            start_frame = np.random.randint(low=0, high=(frames - clip_size -1), dtype=np.int32)
             end_frame = start_frame +  clip_size
         else:
             start_frame = 0
             end_frame = start_frame + frames
 
         output_video = None
-        for clip_index in range(start_frame, end_frame, step=1):
+        for clip_index in range(start_frame, end_frame, 1):
 
-            frame = tf.gather(params=input_video, indices=0, axis=0)
+            frame = tf.gather(params=input_video, indices=clip_index, axis=0)
 
             frame = augmentation_image(frame, target_shape=target_shape, mode=mode, is_training=is_training)
 
+            # expend dimension
+            frame = tf.expand_dims(frame, axis=0)
+
             if output_video is None:
-                output_video = tf.expand_dims(frame, axis=0)
+                output_video = frame
             else:
                 output_video = tf.concat(values=[output_video, frame], axis=0)
+
+        # recover to input dimension
+        output_video = tf.expand_dims(output_video, axis=0)
 
         return output_video
 
@@ -131,8 +146,8 @@ def augmentation_image(image, target_shape, mode='rgb', is_training=False):
     :return:
     """
     # resize
-    image = aspect_preserve_resize(image, resize_side_min=np.ceil(target_shape[0] * 1.04),
-                                   resize_side_max=np.ceil(target_shape[0] * 2.08), is_training=is_training)
+    image = aspect_preserve_resize(image, resize_side_min=np.rint(target_shape[0] * 1.04),
+                                   resize_side_max=np.rint(target_shape[0] * 2.08), is_training=is_training)
 
     #  crop to target_size
     image = image_crop(image, output_height=target_shape[0], output_width=target_shape[1],
@@ -164,11 +179,9 @@ def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_t
     :return:
     """
     if is_training:
-        resize_side = tf.random_uniform([], minval=resize_side_min, maxval=resize_side_max, dtype=tf.int32)
+        smaller_side = tf.random_uniform([], minval=resize_side_min, maxval=resize_side_max, dtype=tf.float32)
     else:
-        resize_side = resize_side_min
-
-    smaller_side = tf.convert_to_tensor(resize_side, dtype=tf.float32)
+        smaller_side = resize_side_min
 
     shape = tf.shape(image)
 
@@ -241,7 +254,7 @@ def central_crop(image, crop_height=224, crop_width=224):
 
     return tf.reshape(crop_image, cropped_shape)
 
-def dataset_tfrecord(record_file, clip_size, input_shape, class_depth, epoch=5, batch_size=10, shuffle=True):
+def dataset_tfrecord(record_file, class_depth, epoch=5, batch_size=10, shuffle=True, is_training=False):
     """
     construct iterator to read image
     :param record_file:
@@ -264,7 +277,7 @@ def dataset_tfrecord(record_file, clip_size, input_shape, class_depth, epoch=5, 
     # parse_img_dataset = raw_img_dataset.map(parse_example)
     # when parse_example has more than one parameter which used to process data
     parse_img_dataset = raw_img_dataset.map(lambda series_record:
-                                            parse_example(series_record, clip_size, input_shape, class_depth))
+                                            parse_example(series_record, class_depth, is_training=is_training))
     # get dataset batch
     if shuffle:
         shuffle_batch_dataset = parse_img_dataset.shuffle(buffer_size=batch_size*4).repeat(epoch).batch(batch_size=batch_size)
@@ -299,10 +312,10 @@ def get_num_samples(record_dir):
 if __name__ == "__main__":
     record_file = os.path.join(tfrecord_dir, 'train')
     rgb_video_batch, flow_video_batch, label_batch, filename = dataset_tfrecord(record_file=record_file,
-                                                                                clip_size=6,
-                                                                                input_shape=[224, 224, 3],
                                                                                 class_depth=5,
-                                                                                batch_size=1)
+                                                                                batch_size=1,
+                                                                                is_training=True)
+    # augmentation video
     # create local and global variables initializer group
     init_op = tf.group(
         tf.global_variables_initializer(),
@@ -321,7 +334,15 @@ if __name__ == "__main__":
         print('threads: {0}'.format(threads))
         try:
             if not coord.should_stop():
-                rgb_video, flow_video, label = sess.run([rgb_video_batch, flow_video_batch, label_batch])
+                raw_rgb_video, raw_flow_video, label = sess.run([rgb_video_batch, flow_video_batch, label_batch])
+
+
+                rgb_video = video_process(raw_rgb_video, clip_size=6, target_shape=(224, 224), is_training=True)
+                flow_video = video_process(raw_flow_video, clip_size=6, target_shape=(224, 224), is_training=True)
+
+                rgb_video, flow_video = sess.run([rgb_video, flow_video])
+
+
                 plt.imshow(rgb_video[0][0])
                 plt.show()
         except Exception as e:

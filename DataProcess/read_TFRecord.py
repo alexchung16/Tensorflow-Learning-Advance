@@ -14,7 +14,7 @@ import tensorflow.contrib.slim as slim
 from tensorflow.python_io import tf_record_iterator
 
 # original_dataset_dir = '/home/alex/Documents/datasets/dogs_vs_cat_separate'
-original_dataset_dir = '/home/alex/Documents/datasets/dogs_vs_cat_separate'
+original_dataset_dir = '/home/alex/Documents/dataset/dogs_vs_cat_separate'
 tfrecord_dir = os.path.join(original_dataset_dir, 'tfrecord')
 
 train_path = os.path.join(original_dataset_dir, 'train')
@@ -70,8 +70,8 @@ def augmentation_image(input_image, image_shape, flip_lr=False, flit_ud=False, b
                        is_training = False):
     try:
         # resize image
-        resize_img = aspect_preserve_resize(input_image, resize_side_min=int(image_shape[0] * 1.04),
-                                           resize_side_max=int(image_shape[0] * 2.08), is_training=is_training)
+        resize_img = aspect_preserve_resize(input_image, resize_side_min=np.rint(image_shape[0] * 1.04),
+                                           resize_side_max=np.rint(image_shape[0] * 2.08), is_training=is_training)
         # crop image
         distort_img = image_crop(resize_img, image_shape[0], image_shape[1], is_training = is_training)
 
@@ -121,11 +121,9 @@ def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_t
     :return:
     """
     if is_training:
-        resize_side = tf.random_uniform([], minval=resize_side_min, maxval=resize_side_max, dtype=tf.int32)
+        smaller_side = tf.random_uniform([], minval=resize_side_min, maxval=resize_side_max, dtype=tf.float32)
     else:
-        resize_side = resize_side_min
-
-    smaller_side = tf.convert_to_tensor(resize_side, dtype=tf.float32)
+        smaller_side = resize_side_min
 
     shape = tf.shape(image)
 
@@ -197,7 +195,6 @@ def central_crop(image, crop_height=224, crop_width=224):
         crop_image = tf.slice(image, begin=offsets, size=cropped_shape)
 
     return tf.reshape(crop_image, cropped_shape)
-
 
 
 def dataset_tfrecord(record_file, input_shape, class_depth, epoch=5, batch_size=10, shuffle=True):
