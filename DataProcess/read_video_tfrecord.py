@@ -25,7 +25,7 @@ train_path = os.path.join(original_dataset_dir, 'train')
 test_path = os.path.join(original_dataset_dir, 'test')
 
 
-def parse_example(serialized_sample, clip_size, input_shape, class_depth):
+def parse_example(serialized_sample, clip_size, target_shape, class_depth):
     """
     parse tensor
     :param image_sample:
@@ -72,24 +72,176 @@ def parse_example(serialized_sample, clip_size, input_shape, class_depth):
     # second step dataset operation
 
     # image augmentation
-    rgb_video = augmentation_video(input_video=rgb_video, image_shape=input_shape)
-    flow_video = augmentation_video()
+    rgb_video = video_process(input_video=rgb_video, clip_size=clip_size, target_shape=target_shape, mode='rgb',
+                              is_training=False)
+    flow_video = video_process(input_video=flow_video, clip_size=clip_size, target_shape=target_shape, mode='flow',
+                               is_training=False)
     # onehot label
     label = tf.one_hot(indices=label, depth=class_depth)
 
-    return rgb_video, label, filename
+    return rgb_video, flow_video, label, filename
 
 
-def augmentation_video(input_video, ):
+def video_process(input_video, clip_size, target_shape, mode='rgb', is_training=False):
+    """
+
+    :param input_video:
+    :param clip_size:
+    :param target_shape:
+    :param model:
+    :param is_training:
+    :return:
+    """
+
     # enlarge image to same size
-
     try:
-      pass
+        shape = input_video.get_sahpe()
+        frames, height, width, depth = shape[0], shape[1], shape[2], shape[3]
+
+        if clip_size < frames:
+            start_frame = np.random.randint(0, frames - clip_size -1)
+            end_frame = start_frame +  clip_size
+        else:
+            start_frame = 0
+            end_frame = start_frame + frames
+
+        output_video = None
+        for clip_index in range(start_frame, end_frame, step=1):
+
+            frame = tf.gather(params=input_video, indices=0, axis=0)
+
+            frame = augmentation_image(frame, target_shape=target_shape, mode=mode, is_training=is_training)
+
+            if output_video is None:
+                output_video = tf.expand_dims(frame, axis=0)
+            else:
+                output_video = tf.concat(values=[output_video, frame], axis=0)
+
+        return output_video
+
     except Exception as e:
         print(e)
 
+def augmentation_image(image, target_shape, mode='rgb', is_training=False):
+    """
+    frame augmentation
+    :param image:
+    :param target_shape:
+    :param is_training:
+    :return:
+    """
+    # resize
+    image = aspect_preserve_resize(image, resize_side_min=np.ceil(target_shape[0] * 1.04),
+                                   resize_side_max=np.ceil(target_shape[0] * 2.08), is_training=is_training)
 
-def dataset_tfrecord(record_file, input_shape, class_depth, epoch=5, batch_size=10, shuffle=True):
+    #  crop to target_size
+    image = image_crop(image, output_height=target_shape[0], output_width=target_shape[1],
+                       is_training=is_training)
+    if is_training:
+        image = tf.image.flip_left_right(image)
+
+    # transfer pixel size to (0., 1.)
+    # if mode == 'rgb':
+    #     image = tf.divide(tf.cast(image, dtype=tf.float32), 255.)
+    #     # [0, 1] => [-0.5, 0.5]
+    #     image = tf.subtract(image, 0.5)
+    #     # [-0.5, 0.5] => [-1.0, 1.0]
+    #     image = tf.multiply(image, 2.0)
+    # elif mode == 'flow':
+    #     pass
+
+    return image
+
+
+def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_training=False):
+    """
+
+    :param image_tensor:
+    :param output_height:
+    :param output_width:
+    :param resize_side_min:
+    :param resize_side_max:
+    :return:
+    """
+    if is_training:
+        resize_side = tf.random_uniform([], minval=resize_side_min, maxval=resize_side_max, dtype=tf.int32)
+    else:
+        resize_side = resize_side_min
+
+    smaller_side = tf.convert_to_tensor(resize_side, dtype=tf.float32)
+
+    shape = tf.shape(image)
+
+    height, width = tf.to_float(shape[0]), tf.to_float(shape[1])
+
+    resize_scale = tf.cond(pred=tf.greater(height, width),
+                           true_fn=lambda : smaller_side / width,
+                           false_fn=lambda : smaller_side / height)
+
+    new_height = tf.to_int32(tf.rint(height * resize_scale))
+    new_width = tf.to_int32(tf.rint(width * resize_scale))
+
+    resize_image = tf.image.resize(image, size=(new_height, new_width))
+
+    return tf.cast(resize_image, dtype=tf.uint8)
+
+
+def image_crop(image, output_height=224, output_width=224, is_training=False):
+    """
+
+    :param image:
+    :param output_height:
+    :param output_width:
+    :param is_training:
+    :return:
+    """
+    shape = tf.shape(image)
+    depth = shape[2]
+    if is_training:
+
+        crop_image = tf.image.random_crop(image, size=(output_height, output_width, depth))
+    else:
+        crop_image = central_crop(image, output_height, output_width)
+
+    return crop_image
+
+def central_crop(image, crop_height=224, crop_width=224):
+    """
+    image central crop
+    :param image:
+    :param output_height:
+    :param output_width:
+    :return:
+    """
+
+    shape = tf.shape(image)
+    height, width, depth = shape[0], shape[1], shape[2]
+
+    # calculate offset width and height for clip operation
+    offset_height = (height - crop_height) / 2
+    offset_width = (width - crop_width) / 2
+
+    # assert image rank must be 3
+    rank_assertion = tf.Assert(tf.equal(tf.rank(image), 3), ['Rank of image must be equal 3'])
+
+    with tf.control_dependencies([rank_assertion]):
+        cropped_shape = tf.stack([crop_height, crop_width, depth])
+
+    size_assertion = tf.Assert(
+        tf.logical_and(
+            tf.greater_equal(height, crop_height),
+            tf.greater_equal(width, crop_width)),
+        ['Image size greater than the crop size'])
+
+    offsets = tf.to_int32(tf.stack([offset_height, offset_width, 0]))
+
+    with tf.control_dependencies([size_assertion]):
+        # crop with slice
+        crop_image = tf.slice(image, begin=offsets, size=cropped_shape)
+
+    return tf.reshape(crop_image, cropped_shape)
+
+def dataset_tfrecord(record_file, clip_size, input_shape, class_depth, epoch=5, batch_size=10, shuffle=True):
     """
     construct iterator to read image
     :param record_file:
@@ -112,20 +264,17 @@ def dataset_tfrecord(record_file, input_shape, class_depth, epoch=5, batch_size=
     # parse_img_dataset = raw_img_dataset.map(parse_example)
     # when parse_example has more than one parameter which used to process data
     parse_img_dataset = raw_img_dataset.map(lambda series_record:
-                                            parse_example(series_record, input_shape, class_depth))
+                                            parse_example(series_record, clip_size, input_shape, class_depth))
     # get dataset batch
     if shuffle:
         shuffle_batch_dataset = parse_img_dataset.shuffle(buffer_size=batch_size*4).repeat(epoch).batch(batch_size=batch_size)
     else:
         shuffle_batch_dataset = parse_img_dataset.repeat(epoch).batch(batch_size=batch_size)
     # make dataset iterator
-    image, label, filename = shuffle_batch_dataset.make_one_shot_iterator().get_next()
+    rgb_video, flow_video, label, filename = shuffle_batch_dataset.make_one_shot_iterator().get_next()
 
-    # image = augmentation_image(input_image=image, image_shape=input_shape)
-    # # onehot label
-    # label = tf.one_hot(indices=label, depth=class_depth)
 
-    return image, label, filename
+    return rgb_video, flow_video, label, filename
 
 
 def get_num_samples(record_dir):
@@ -149,8 +298,11 @@ def get_num_samples(record_dir):
 
 if __name__ == "__main__":
     record_file = os.path.join(tfrecord_dir, 'train')
-    image_batch, label_batch, filename = dataset_tfrecord(record_file=record_file, input_shape=[224, 224, 3],
-                                                          class_depth=5)
+    rgb_video_batch, flow_video_batch, label_batch, filename = dataset_tfrecord(record_file=record_file,
+                                                                                clip_size=6,
+                                                                                input_shape=[224, 224, 3],
+                                                                                class_depth=5,
+                                                                                batch_size=1)
     # create local and global variables initializer group
     init_op = tf.group(
         tf.global_variables_initializer(),
@@ -169,8 +321,8 @@ if __name__ == "__main__":
         print('threads: {0}'.format(threads))
         try:
             if not coord.should_stop():
-                image_feed, label_feed = sess.run([image_batch, label_batch])
-                plt.imshow(image_feed[0])
+                rgb_video, flow_video, label = sess.run([rgb_video_batch, flow_video_batch, label_batch])
+                plt.imshow(rgb_video[0][0])
                 plt.show()
         except Exception as e:
             print(e)
