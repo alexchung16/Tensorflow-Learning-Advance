@@ -196,7 +196,10 @@ def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_t
 
     resize_image = tf.image.resize(image, size=(new_height, new_width))
 
-    return tf.cast(resize_image, dtype=tf.uint8)
+    # output type as input type
+    resize_image = tf.cast(resize_image, dtype=image.dtype)
+
+    return resize_image
 
 
 def image_crop(image, output_height=224, output_width=224, is_training=False):
@@ -215,6 +218,9 @@ def image_crop(image, output_height=224, output_width=224, is_training=False):
         crop_image = tf.image.random_crop(image, size=(output_height, output_width, depth))
     else:
         crop_image = central_crop(image, output_height, output_width)
+
+        # output type as input type
+    crop_image = tf.cast(crop_image, dtype=image.dtype)
 
     return crop_image
 
@@ -336,7 +342,6 @@ if __name__ == "__main__":
             if not coord.should_stop():
                 raw_rgb_video, raw_flow_video, label = sess.run([rgb_video_batch, flow_video_batch, label_batch])
 
-
                 rgb_video = video_process(raw_rgb_video, clip_size=6, target_shape=(224, 224), is_training=True)
                 flow_video = video_process(raw_flow_video, clip_size=6, target_shape=(224, 224), is_training=True)
 
@@ -344,6 +349,7 @@ if __name__ == "__main__":
 
 
                 plt.imshow(rgb_video[0][0])
+                print(flow_video[0][0])
                 plt.show()
         except Exception as e:
             print(e)
