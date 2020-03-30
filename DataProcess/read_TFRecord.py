@@ -138,7 +138,7 @@ def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_t
 
     resize_image = tf.image.resize(image, size=(new_height, new_width))
 
-    return tf.cast(resize_image, dtype=tf.uint8)
+    return tf.cast(resize_image, dtype=image.dtype)
 
 
 def image_crop(image, output_height=224, output_width=224, is_training=False):
@@ -158,7 +158,7 @@ def image_crop(image, output_height=224, output_width=224, is_training=False):
     else:
         crop_image = central_crop(image, output_height, output_width)
 
-    return crop_image
+    return tf.cast(crop_image, image.dtype)
 
 def central_crop(image, crop_height=224, crop_width=224):
     """
