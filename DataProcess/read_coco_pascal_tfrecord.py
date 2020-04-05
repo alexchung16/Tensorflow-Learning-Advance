@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @ File coco_pascal_tfrecord.py
+# @ File convert_coco_pascal_tfrecord.py
 # @ Description :
 # @ Author alexchung
 # @ Time 11/12/2019 AM 09:34
@@ -15,8 +15,8 @@ import tensorflow.contrib.slim as slim
 from tensorflow.python_io import tf_record_iterator
 
 
-# origin_dataset_dir = 'F:\datasets\Pascal VOC 2012\VOCdevkit\VOC2012'
-origin_dataset_dir = '/home/alex/Documents/datasets/Pascal_VOC_2012/VOCtrainval/VOCdevkit_test'
+# origin_dataset_dir = '/home/alex/Documents/dataset/Pascal_VOC_2012/VOCtrainval/VOCdevkit_test'
+origin_dataset_dir = '/home/alex/Documents/dataset/COCO_2017/new_sub_coco'
 tfrecord_dir = os.path.join(origin_dataset_dir, 'tfrecords')
 
 _R_MEAN = 123.68
@@ -55,7 +55,7 @@ def read_parse_single_example(serialized_sample, shortside_len, length_limitatio
     # image augmentation
     # image = augmentation_image(image=image, image_shape=input_shape)
     # parse gtbox
-    gtboxes_and_label = tf.decode_raw(feature['gtboxes_and_label'], tf.int32)
+    gtboxes_and_label = tf.decode_raw(feature['gtboxes_and_label'], out_type=tf.int32)
     gtboxes_and_label = tf.reshape(gtboxes_and_label, shape=[-1, 5])
     num_objects = tf.cast(feature['num_objects'], tf.int32)
 
@@ -103,10 +103,12 @@ def image_whitened(image, means=(_R_MEAN, _G_MEAN, _B_MEAN)):
     image = image - mean
     return image
 
+
 def max_length_limitation(length, length_limitation):
     return tf.cond(tf.less(length, length_limitation),
                    true_fn=lambda: length,
                    false_fn=lambda: length_limitation)
+
 
 def short_side_resize(img_tensor, gtboxes_and_label, target_shortside_len, length_limitation=1200):
     '''
@@ -231,7 +233,7 @@ def reader_tfrecord(record_file, shortside_len, length_limitation, batch_size=1,
 
 if __name__ == "__main__":
 
-    record_file = os.path.join(tfrecord_dir, 'train.tfrecord')
+    # record_file = os.path.join(tfrecord_dir, 'train.tfrecord')
     # create local and global variables initializer group
     # image, filename, gtboxes_and_label, num_objects = reader_tfrecord(record_file=tfrecord_dir,
     #                                                                   shortside_len=IMG_SHORT_SIDE_LEN,
@@ -239,7 +241,7 @@ if __name__ == "__main__":
     image, filename, gtboxes_and_label, num_objects = dataset_tfrecord(record_file=tfrecord_dir,
                                                                        shortside_len=IMG_SHORT_SIDE_LEN,
                                                                        length_limitation=IMG_MAX_LENGTH,
-                                                                       is_training=True)
+                                                                       is_training=False)
     init_op = tf.group(
         tf.global_variables_initializer(),
         tf.local_variables_initializer()
@@ -256,10 +258,10 @@ if __name__ == "__main__":
                 image_feed, filename_feed, gtboxes_and_label = sess.run([image, filename, gtboxes_and_label])
                 # print(len(image_batch.eval()))
                 # print(label_batch.eval())
-                print(image_feed[0])
                 plt.imshow(image_feed[0])
                 plt.show()
-                print(filename_feed)
+                print(gtboxes_and_label.shape)
+                print(gtboxes_and_label)
         except Exception as e:
             print(e)
         finally:

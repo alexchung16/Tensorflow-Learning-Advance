@@ -127,7 +127,7 @@ def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_t
 
     shape = tf.shape(image)
 
-    height, width = tf.to_float(shape[0]), tf.to_float(shape[1])
+    height, width = tf.cast(shape[0], dtype=tf.float32), tf.cast(shape[1], dtype=tf.float32)
 
     resize_scale = tf.cond(pred=tf.greater(height, width),
                            true_fn=lambda : smaller_side / width,
@@ -188,7 +188,7 @@ def central_crop(image, crop_height=224, crop_width=224):
             tf.greater_equal(width, crop_width)),
         ['Image size greater than the crop size'])
 
-    offsets = tf.to_int32(tf.stack([offset_height, offset_width, 0]))
+    offsets = tf.cast(tf.stack([offset_height, offset_width, 0]), dtype=tf.int32)
 
     with tf.control_dependencies([size_assertion]):
         # crop with slice
@@ -197,7 +197,7 @@ def central_crop(image, crop_height=224, crop_width=224):
     return tf.reshape(crop_image, cropped_shape)
 
 
-def dataset_tfrecord(record_file, input_shape, class_depth, epoch=5, batch_size=10, shuffle=True):
+def dataset_tfrecord(record_file, input_shape, class_depth, epoch=5, batch_size=10, shuffle=True, is_training=False):
     """
     construct iterator to read image
     :param record_file:
@@ -220,7 +220,7 @@ def dataset_tfrecord(record_file, input_shape, class_depth, epoch=5, batch_size=
     # parse_img_dataset = raw_img_dataset.map(parse_example)
     # when parse_example has more than one parameter which used to process data
     parse_img_dataset = raw_img_dataset.map(lambda series_record:
-                                            parse_example(series_record, input_shape, class_depth))
+                                            parse_example(series_record, input_shape, class_depth, is_training=is_training))
     # get dataset batch
     if shuffle:
         shuffle_batch_dataset = parse_img_dataset.shuffle(buffer_size=batch_size*4).repeat(epoch).batch(batch_size=batch_size)
@@ -300,7 +300,7 @@ def get_num_samples(record_dir):
 if __name__ == "__main__":
     record_file = os.path.join(tfrecord_dir, 'train')
     image_batch, label_batch, filename = dataset_tfrecord(record_file=record_file, input_shape=[224, 224, 3],
-                                                          class_depth=5)
+                                                          class_depth=5, is_training=True)
     # create local and global variables initializer group
     init_op = tf.group(
         tf.global_variables_initializer(),
