@@ -156,11 +156,11 @@ def image_crop(image, output_height=224, output_width=224, is_training=False):
 
         crop_image = tf.image.random_crop(image, size=(output_height, output_width, depth))
     else:
-        crop_image = centre_crop(image, output_height, output_width)
+        crop_image = central_crop(image, output_height, output_width)
 
     return tf.cast(crop_image, image.dtype)
 
-def centre_crop(image, crop_height=224, crop_width=224):
+def central_crop(image, crop_height=224, crop_width=224):
     """
     image central crop
     :param image:
