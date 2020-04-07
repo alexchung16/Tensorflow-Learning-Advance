@@ -195,7 +195,7 @@ def video_to_record(save_path, video_name_list, sample_frames=None, labels_list=
                 image_record = serialize_example(rgb_video, flow_video,  label, rgb_frames, flow_frames, height, width,
                                                  rgb_depth, flow_depth, video_name)
                 writer.write(record=image_record)
-                view_bar(message='Conversion progress', num=count, total=len(video_name_list))
+                view_bar(message='\nConversion progress', num=count, total=len(video_name_list))
                 count += 1
 
             except Exception as e:
