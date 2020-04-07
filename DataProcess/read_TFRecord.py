@@ -64,7 +64,7 @@ def parse_example(serialized_sample, input_shape, class_depth, is_training=False
     return image, label, filename
 
 
-def augmentation_image(input_image, image_shape, flip_lr=False, flit_ud=False, brightness=False,
+def augmentation_image(input_image, image_shape, flip_lr=False, flip_ud=False, brightness=False,
                        bright_delta=0.2, contrast=False, contrast_lower=0.5, contrast_up=1.5, hue=False,
                        hue_delta=0.2, saturation=False, saturation_low=0.5, saturation_up=1.5, standard=False,
                        is_training = False):
@@ -82,7 +82,7 @@ def augmentation_image(input_image, image_shape, flip_lr=False, flit_ud=False, b
                 if flip_lr:
                     distort_img = tf.image.random_flip_left_right(image=distort_img, seed=0)
                 # flip image in left and right
-                if flit_ud:
+                if flip_ud:
                     distort_img = tf.image.random_flip_up_down(image=distort_img, seed=0)
                 # adjust image brightness
                 if brightness:
@@ -133,8 +133,8 @@ def aspect_preserve_resize(image, resize_side_min=256, resize_side_max=512, is_t
                            true_fn=lambda : smaller_side / width,
                            false_fn=lambda : smaller_side / height)
 
-    new_height = tf.to_int32(tf.rint(height * resize_scale))
-    new_width = tf.to_int32(tf.rint(width * resize_scale))
+    new_height = tf.cast(tf.rint(height * resize_scale), dtype=tf.int32)
+    new_width = tf.cast(tf.rint(width * resize_scale), dtype=tf.int32)
 
     resize_image = tf.image.resize(image, size=(new_height, new_width))
 
@@ -156,11 +156,11 @@ def image_crop(image, output_height=224, output_width=224, is_training=False):
 
         crop_image = tf.image.random_crop(image, size=(output_height, output_width, depth))
     else:
-        crop_image = central_crop(image, output_height, output_width)
+        crop_image = centre_crop(image, output_height, output_width)
 
     return tf.cast(crop_image, image.dtype)
 
-def central_crop(image, crop_height=224, crop_width=224):
+def centre_crop(image, crop_height=224, crop_width=224):
     """
     image central crop
     :param image:
