@@ -32,6 +32,8 @@ def fully_connected(input_op, scope, num_outputs, weight_decay=0.00004, is_activ
         flat_data = tf.reshape(tensor=input_op, shape=[-1, size], name='Flatten')
 
         weights =get_weights_1(shape=[size, num_outputs], weight_decay=weight_decay, trainable=fineturn)
+        # weights = get_weights_2(shape=[size, num_outputs], weight_decay=weight_decay, trainable=fineturn)
+        # weights = get_weights_3(shape=[size, num_outputs], weight_decay=weight_decay, trainable=fineturn)
         biases =get_bias(shape=[num_outputs], trainable=fineturn)
 
         if is_activation:
@@ -114,7 +116,7 @@ def get_weights_2(shape, weight_decay=0.0, dtype=tf.float32, trainable=True):
     weight = tf.Variable(initial_value=tf.truncated_normal(shape=shape, stddev=0.01), name='Weights', dtype=dtype,
                          trainable=trainable)
     if weight_decay > 0:
-        weight_loss = tf.contrib.layers.l2_regularizer(weight_decay)(weight)
+        weight_loss = tf.nn.l2_loss(weight) * weight_decay
         # weight_loss = tf.nn.l2_loss(weight, name="weight_loss")
         # tf.add_to_collection(tf.GraphKeys.LOSSES, value=weight_loss)
         tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, value=weight_loss)
@@ -197,7 +199,7 @@ if __name__ == "__main__":
         total_loss_op = loss_op + weight_loss_op
 
     # generate data and label
-    tf.set_random_seed(0)
+    tf.random.set_random_seed(0)
     data_batch = tf.Variable(tf.random_uniform(shape=(BATCH_SIZE, DATA_LENGTH), minval=0, maxval=1, dtype=tf.float32))
     label_batch = tf.Variable(tf.random_uniform(shape=(BATCH_SIZE,), minval=1, maxval=NUM_CLASSES, dtype=tf.int32))
     label_batch = tf.one_hot(label_batch, depth=NUM_CLASSES) # convert label to onehot
