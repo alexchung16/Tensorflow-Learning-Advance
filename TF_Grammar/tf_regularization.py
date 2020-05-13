@@ -180,7 +180,6 @@ if __name__ == "__main__":
     WEIGHT_DECAY = 0.00004
 
     # construct net
-
     global_step = tf.train.get_or_create_global_step()
     input_data_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, DATA_LENGTH], name="input_data")
     input_label_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, NUM_CLASSES], name="input_label")
@@ -193,6 +192,7 @@ if __name__ == "__main__":
                                                                 name='entropy')
         loss_op = tf.reduce_mean(input_tensor=cross_entropy, name='loss')
         weight_loss_op = tf.losses.get_regularization_losses()
+
         weight_loss_op = tf.add_n(weight_loss_op)
         total_loss_op = loss_op + weight_loss_op
 
@@ -209,11 +209,14 @@ if __name__ == "__main__":
     with tf.Session(config=config) as sess:
         sess.run(init_op)
         input_data, input_label = sess.run([data_batch, label_batch])
-        # print(input_data)
-        # print(input_label)
+
+        print('model variable:')
         for var in tf.global_variables():
             print(var.op.name, var.shape)
-        print(tf.trainable_variables())
+
+        print('regularization loss op:')
+        for var in tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES):
+            print(var.op.name, var.shape)
 
         # training part
         train_op = tf.train.GradientDescentOptimizer(learning_rate=LEARNING_RATE).minimize(loss=total_loss_op,
@@ -224,7 +227,7 @@ if __name__ == "__main__":
 
         _, total_loss, loss, weight_loss = sess.run([train_op, total_loss_op, loss_op, weight_loss_op],
                                                              feed_dict=feed_dict)
-        print('loss:{0} weight loss:{1} total loss:{1}'.format(loss, weight_loss, total_loss))
+        print('loss:{0} weight_loss:{1} total_loss:{2}'.format(loss, weight_loss, total_loss))
 
 
 
