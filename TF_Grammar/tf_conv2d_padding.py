@@ -13,7 +13,7 @@ import numpy as np
 import tensorflow as tf
 
 
-def conv2d_custom(input, filters=None, strides=None, padding=None, data_format="NHWC", name=None):
+def conv2d_custom(input, filter=None, strides=None, padding=None, data_format="NHWC", name=None):
     """
     custom conv2d to evaluate padding operation
     :param input:
@@ -26,11 +26,11 @@ def conv2d_custom(input, filters=None, strides=None, padding=None, data_format="
     """
     net = None
     if padding == 'VALID':
-        net = tf.nn.conv2d(input=input, filters=filters, strides=strides, data_format=data_format, name=name)
+        net = tf.nn.conv2d(input=input, filter=filter, strides=strides, data_format=data_format, name=name)
 
     elif padding == "SAME":
         input_shape = list(map(int, list(input.get_shape())))
-        filter_shape = list(map(int, list(filters.get_shape())))
+        filter_shape = list(map(int, list(filter.get_shape())))
         # ------------------------------padding part-----------------------------------
         # step 1 get outputs shape
 
@@ -55,7 +55,7 @@ def conv2d_custom(input, filters=None, strides=None, padding=None, data_format="
         padding_input = tf.pad(tensor=input, paddings=padding)
         # ------------------------------ VALID convolution part----------------------------
         # step 4
-        net = tf.nn.conv2d(input=padding_input, filters=filters, strides=strides, data_format=data_format,
+        net = tf.nn.conv2d(input=padding_input, filter=filter, strides=strides, data_format=data_format,
                            padding="VALID", name=name)
 
     return net
@@ -78,8 +78,8 @@ def main():
     # #+++++++++++++++++++++++++++++++++ custom SAME mode++++++++++++++++++++++++++++++++++++
     filters_3x3 = tf.Variable(initial_value=tf.random_uniform(shape=[3, 3, CHANNELS, NUM_OUTPUTS]))
     with tf.variable_scope("part_1"):
-        output_same_3x3 = tf.nn.conv2d(input=image_batch, filters=filters_3x3, strides=STRIDE, padding='SAME', name='same_3x3')
-        output_valid_3x3 = tf.nn.conv2d(input=image_batch, filters=filters_3x3, strides=STRIDE, padding='VALID', name='valid_3x3')
+        output_same_3x3 = tf.nn.conv2d(input=image_batch, filter=filters_3x3, strides=STRIDE, padding='SAME', name='same_3x3')
+        output_valid_3x3 = tf.nn.conv2d(input=image_batch, filter=filters_3x3, strides=STRIDE, padding='VALID', name='valid_3x3')
 
         # custom SAME mode of convolution
         # step 1 add padding to extend the size of input shape
@@ -88,7 +88,7 @@ def main():
         # width_left = width_right = num_padding / 2 = 1
         # paddings = [[0, 0], [height_top, height_bottom], [width_left, width_right], [0, 0]]
         padding_batch_3x3  = tf.pad(tensor=image_batch, paddings=[[0, 0], [1, 1], [1, 1], [0, 0]])
-        output_same_3x3_custom = tf.nn.conv2d(input=padding_batch_3x3, filters=filters_3x3, strides=STRIDE, padding='VALID',
+        output_same_3x3_custom = tf.nn.conv2d(input=padding_batch_3x3, filter=filters_3x3, strides=STRIDE, padding='VALID',
                                                name='custom_same_3x3')
 
     init_op_1 = tf.group(tf.local_variables_initializer(),
@@ -157,14 +157,14 @@ def main():
     with tf.variable_scope("part_2"):
         filters_4x4 = tf.Variable(initial_value=tf.random_uniform(shape=[4, 4, CHANNELS, NUM_OUTPUTS]))
 
-        output_same_4x4 = tf.nn.conv2d(input=image_batch, filters=filters_4x4, strides=STRIDE, padding='SAME',
+        output_same_4x4 = tf.nn.conv2d(input=image_batch, filter=filters_4x4, strides=STRIDE, padding='SAME',
                                        name='same_4x4')
-        output_valid_4x4 = tf.nn.conv2d(input=image_batch, filters=filters_4x4, strides=STRIDE, padding='VALID',
+        output_valid_4x4 = tf.nn.conv2d(input=image_batch, filter=filters_4x4, strides=STRIDE, padding='VALID',
                                         name='valid_4x4')
 
         # paddings = [[0, 0], [height_top, height_bottom], [width_left, width_right], [0, 0]]
         padding_batch_4x4 = tf.pad(tensor=image_batch, paddings=[[0, 0], [1, 2], [1, 2], [0, 0]])
-        output_same_4x4_custom = tf.nn.conv2d(input=padding_batch_4x4, filters=filters_4x4, strides=STRIDE, padding='VALID',
+        output_same_4x4_custom = tf.nn.conv2d(input=padding_batch_4x4, filter=filters_4x4, strides=STRIDE, padding='VALID',
                                               name='custom_same_4x4')
 
     init_op_2 = tf.group(tf.local_variables_initializer(),
@@ -189,10 +189,10 @@ def main():
 
     #+++++++++++++++++++++++++++++++++test custom conv2d module++++++++++++++++++++++++++++++++++
     with tf.variable_scope("part_3"):
-        custom_same_3x3 = conv2d_custom(input=image_batch, filters=filters_3x3, strides=STRIDE, padding='SAME',
+        custom_same_3x3 = conv2d_custom(input=image_batch, filter=filters_3x3, strides=STRIDE, padding='SAME',
                                         name = "custom_same_3x3")
 
-        custom_same_4x4 = conv2d_custom(input=image_batch, filters=filters_4x4, strides=STRIDE, padding='SAME',
+        custom_same_4x4 = conv2d_custom(input=image_batch, filter=filters_4x4, strides=STRIDE, padding='SAME',
                                         name = "custom_same_4x4")
 
     init_op_3 = tf.group(tf.local_variables_initializer(),
