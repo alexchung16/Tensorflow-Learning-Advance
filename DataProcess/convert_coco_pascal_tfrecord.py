@@ -11,7 +11,7 @@ import numpy as np
 import json
 from collections import defaultdict
 import tensorflow  as tf
-import xml.etree.cElementTree as ET
+import defusedxml.cElementTree as ET
 import cv2 as cv
 
 from Util.tools import view_bar, makedir
