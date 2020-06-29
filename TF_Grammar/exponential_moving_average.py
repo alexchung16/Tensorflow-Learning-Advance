@@ -40,7 +40,7 @@ def ema_comp_ema_corr():
         v_ema_corr.append(t/(1-np.power(beta, i+1)))
     print("v_ema_corr", v_ema_corr)
 
-    # step 4 plot ema and correction ema reslut
+    # # step 3 plot ema reslut besed on different beta value
     plt.plot(x_index, raw_tmp, label='raw_tmp')  # Plot some data on the (implicit) axes.
     plt.plot(x_index, v_ema, label='v_ema')  # etc.
     plt.plot(x_index, v_ema_corr, label='v_ema_corr')
