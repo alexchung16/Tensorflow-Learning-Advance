@@ -29,7 +29,7 @@ if __name__ == "__main__":
     v_ema = []
     v_pre = 0
     for i, t in enumerate(raw_tmp):
-        v_t = 0.9 * v_pre + 0.1 * t
+        v_t = beta * v_pre + (1-beta) * t
         v_ema.append(v_t)
         v_pre = v_t
     print(v_ema)
