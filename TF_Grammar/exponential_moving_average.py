@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def ema_comp_ema_corr():
+def ema_camp_ema_corr():
     beta = 0.9
     num_samples = 100
 
