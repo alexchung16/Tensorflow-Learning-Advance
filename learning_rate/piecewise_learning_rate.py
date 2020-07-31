@@ -25,8 +25,7 @@ decay_boundaries = [5000, 8000]
 learning_rate_value = [base_learning_rate, base_learning_rate/10., base_learning_rate/100.]
 summary_step = 10
 
-if __name__ == "__main__":
-
+def main():
 
     global_step_op = tf.train.get_or_create_global_step()
 
@@ -62,6 +61,9 @@ if __name__ == "__main__":
             coord.request_stop()
             coord.join(threads)
             print('all threads are asked to stop!')
+
+if __name__ == "__main__":
+    main()
 
 
 
