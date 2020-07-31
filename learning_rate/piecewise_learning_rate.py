@@ -29,6 +29,7 @@ def main():
 
     global_step_op = tf.train.get_or_create_global_step()
 
+    # x = tf.get_variable(shape=[1], initializer=tf.random_normal_initializer(), name="x")
     learning_rate =  tf.train.piecewise_constant_decay(global_step_op,
                                                        boundaries=decay_boundaries,
                                                        values=learning_rate_value)
@@ -52,7 +53,7 @@ def main():
                         summary_write.add_summary(summary, global_step=global_step)
                         summary_write.flush()
 
-                    summary, global_step = sess.run([summary_op, global_step_op], feed_dict={global_step_op: step})
+                    summary, global_step = sess.run([summary_op, global_step_op], feed_dict={global_step_op:step})
 
         except Exception as e:
             # Report exceptions to the coordinator.
