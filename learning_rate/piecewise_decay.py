@@ -17,7 +17,7 @@ import os
 import tensorflow as tf
 
 summary_path = './summary'
-method = 'piecewise_learning_rate'
+method = 'piecewise_decay'
 
 max_step = 20000
 base_learning_rate = 0.001
