@@ -27,6 +27,9 @@ def main():
     global_step_op = tf.train.get_or_create_global_step()
 
     # x = tf.get_variable(shape=[1], initializer=tf.random_normal_initializer(), name="x")
+    # decayed_learning_rate = learning_rate * decay_rate ^ (global_step / decay_steps)
+    # every decay_steps step the decayed_learning_rate decayed decay_rate
+    # note the learning rate decay happened at every step
     learning_rate =  tf.train.exponential_decay(learning_rate=base_learning_rate,
                                                 decay_rate=decay_rate,
                                                 decay_steps=decay_steps,

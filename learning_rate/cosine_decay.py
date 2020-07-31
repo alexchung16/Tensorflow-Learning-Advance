@@ -34,6 +34,8 @@ def main():
     # decayed = (1 - alpha) * cosine_decay + alpha
     # decayed_learning_rate = learning_rate * decayed
     # update learning rate(decayed learning rate) just according to decayed parameter and learning no change
+    # when iterator step beyond decay step, the learning rate keep unchanged and
+    # learning_rate_decayed = learning_rate * alpha
     learning_rate =  tf.train.cosine_decay(learning_rate=base_learning_rate,
                                            decay_steps=decay_steps,
                                            alpha=alpha,
