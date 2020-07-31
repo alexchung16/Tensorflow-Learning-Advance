@@ -88,7 +88,8 @@ def cosine_decay_with_warmup(global_step,
   Args:
     global_step: int64 (scalar) tensor representing global step.
     learning_rate_base: base learning rate.
-    total_steps: total number of training steps.
+    total_decay_steps: total number of learning rate decay steps.
+    alpha: Minimum learning rate value as a fraction of learning_rate.
     warmup_learning_rate: initial learning rate for warm up.
     warmup_steps: number of warmup steps.
     hold_base_rate_steps: Optional number of steps to hold base learning rate
