@@ -18,11 +18,12 @@ summary_path = './summary'
 method = 'cosine_decay_with_warmup'
 
 max_step = 20000
-total_step = 15000 # under normal conditions the total_step equal to max_step
+total_decay_step = 15000 # under normal conditions the total_step equal to max_step
 base_learning_rate = 0.01
 warmup_learning_rate = 0.0001
 warmup_steps = 2000
 hold_base_rate_steps = 1000
+alpha = 0.00001
 
 summary_step = 10
 
@@ -31,7 +32,8 @@ def main():
     global_step_op = tf.train.get_or_create_global_step()
 
     learning_rate = cosine_decay_with_warmup(learning_rate_base=base_learning_rate,
-                                             total_steps=total_step,
+                                             total_decay_steps=total_decay_step,
+                                             alpha = alpha,
                                              warmup_learning_rate=warmup_learning_rate,
                                              warmup_steps=warmup_steps,
                                              hold_base_rate_steps=hold_base_rate_steps,
@@ -69,7 +71,8 @@ def main():
 
 def cosine_decay_with_warmup(global_step,
                              learning_rate_base,
-                             total_steps,
+                             total_decay_steps,
+                             alpha = 0.0,
                              warmup_learning_rate=0.0,
                              warmup_steps=0,
                              hold_base_rate_steps=0):
@@ -102,7 +105,7 @@ def cosine_decay_with_warmup(global_step,
     ValueError: if warmup_learning_rate is larger than learning_rate_base,
       or if warmup_steps is larger than total_steps.
   """
-  if total_steps < warmup_steps:
+  if total_decay_steps < warmup_steps:
     raise ValueError('total_steps must be larger or equal to '
                      'warmup_steps.')
   def eager_decay_rate():
@@ -114,9 +117,13 @@ def cosine_decay_with_warmup(global_step,
     # where alpha = 0
     # global_step = global_step - (warmup_steps + hold_base_rate_steps)
     # decay_step = total_steps - (warmup_steps + hold_base_rate_steps)
-    learning_rate = 0.5 * learning_rate_base * (1 + tf.cos(
-        np.pi *(tf.cast(global_step, tf.float32) - warmup_steps - hold_base_rate_steps
-        ) / float(total_steps - warmup_steps - hold_base_rate_steps)))
+    # learning_rate = 0.5 * learning_rate_base * (1 + tf.cos(
+    #     np.pi *(tf.cast(global_step, tf.float32) - warmup_steps - hold_base_rate_steps
+    #     ) / float(total_decay_steps - warmup_steps - hold_base_rate_steps)))
+    learning_rate = tf.train.cosine_decay(learning_rate=learning_rate_base,
+                                          decay_steps=total_decay_steps - warmup_steps - hold_base_rate_steps,
+                                          global_step= global_step - warmup_steps - hold_base_rate_steps,
+                                          alpha=alpha)
     if hold_base_rate_steps > 0:
       learning_rate = tf.where(
           global_step > warmup_steps + hold_base_rate_steps,
@@ -130,7 +137,7 @@ def cosine_decay_with_warmup(global_step,
                                     tf.float32) + warmup_learning_rate
       learning_rate = tf.where(global_step < warmup_steps, warmup_rate,
                                learning_rate)
-    return tf.where(global_step > total_steps, 0.0, learning_rate,
+    return tf.where(global_step > total_decay_steps, alpha, learning_rate,
                     name='learning_rate')
 
   if tf.executing_eagerly():
