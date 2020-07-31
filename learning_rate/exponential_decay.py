@@ -30,12 +30,20 @@ def main():
     # decayed_learning_rate = learning_rate * decay_rate ^ (global_step / decay_steps)
     # every decay_steps step the decayed_learning_rate decayed decay_rate
     # note the learning rate decay happened at every step
-    learning_rate =  tf.train.exponential_decay(learning_rate=base_learning_rate,
+    learning_rate_no_stair =  tf.train.exponential_decay(learning_rate=base_learning_rate,
                                                 decay_rate=decay_rate,
                                                 decay_steps=decay_steps,
+                                                staircase=False,
                                                 global_step=global_step_op,
-                                                name="exponential_decay")
-    tf.summary.scalar("learning_rate", learning_rate)
+                                                name="exponential_decay_no_stair")
+    tf.summary.scalar("exponential_decay_no_stair", learning_rate_no_stair)
+    learning_rate_no_stair = tf.train.exponential_decay(learning_rate=base_learning_rate,
+                                                        decay_rate=decay_rate,
+                                                        decay_steps=decay_steps,
+                                                        staircase=True,
+                                                        global_step=global_step_op,
+                                                        name="exponential_decay_use_stair")
+    tf.summary.scalar("exponential_decay_use_stair", learning_rate_no_stair)
     summary_op = tf.summary.merge_all()
 
     init_op = tf.group(tf.global_variables_initializer(),
