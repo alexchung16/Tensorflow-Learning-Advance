@@ -17,7 +17,7 @@ summary_path = './summary'
 method = 'exponential_decay'
 
 max_step = 20000
-base_learning_rate = 0.001
+base_learning_rate = 0.01
 decay_rate = 0.98
 decay_steps = 2000
 summary_step = 10

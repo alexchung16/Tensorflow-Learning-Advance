@@ -1,28 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------------------
-# @ File       : piecewise_learning_rate.py
+# @ File       : cosine_decay.py
 # @ Description:  
 # @ Author     : Alex Chung
 # @ Contact    : yonganzhong@outlook.com
 # @ License    : Copyright (c) 2017-2018
-# @ Time       : 2020/7/31 上午8:20
+# @ Time       : 2020/7/31 上午10:41
 # @ Software   : PyCharm
 #-------------------------------------------------------
 
-# https://github.com/tensorflow/models/blob/v1.13.0/official/resnet/resnet_run_loop.py#L225
-# https://github.com/tensorflow/models/blob/master/research/object_detection/utils/learning_schedules.py
+# SGDR: Stochastic Gradient Descent with Warm Restarts
 
 import os
 import tensorflow as tf
 
 summary_path = './summary'
-method = 'piecewise_decay'
+method = 'cosine_decay'
 
 max_step = 20000
 base_learning_rate = 0.01
-decay_boundaries = [5000, 8000]
-learning_rate_value = [base_learning_rate, base_learning_rate/10., base_learning_rate/100.]
+decay_steps = 10000
+alpha = 0.001
 summary_step = 10
 
 def main():
@@ -30,9 +29,16 @@ def main():
     global_step_op = tf.train.get_or_create_global_step()
 
     # x = tf.get_variable(shape=[1], initializer=tf.random_normal_initializer(), name="x")
-    learning_rate =  tf.train.piecewise_constant_decay(global_step_op,
-                                                       boundaries=decay_boundaries,
-                                                       values=learning_rate_value)
+    # global_step = min(global_step, decay_steps)
+    # cosine_decay = 0.5 * (1 + cos(pi * global_step / decay_steps))
+    # decayed = (1 - alpha) * cosine_decay + alpha
+    # decayed_learning_rate = learning_rate * decayed
+    # update learning rate(decayed learning rate) just according to decayed parameter and learning no change
+    learning_rate =  tf.train.cosine_decay(learning_rate=base_learning_rate,
+                                           decay_steps=decay_steps,
+                                           alpha=alpha,
+                                           global_step=global_step_op,
+                                           name="cosine_decay")
     tf.summary.scalar("learning_rate", learning_rate)
     summary_op = tf.summary.merge_all()
 
@@ -65,13 +71,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
