@@ -23,6 +23,7 @@ base_learning_rate = 0.01
 warmup_learning_rate = 0.0001
 warmup_steps = 2000
 hold_base_rate_steps = 1000
+hold_base_rate_steps_0 = 0
 alpha = 0.00001
 
 summary_step = 10
@@ -38,7 +39,15 @@ def main():
                                              warmup_steps=warmup_steps,
                                              hold_base_rate_steps=hold_base_rate_steps,
                                              global_step=global_step_op)
-    tf.summary.scalar("cosine_decay_with_warmup", learning_rate)
+    tf.summary.scalar("cosine_decay_with_warmup_hold_1000", learning_rate)
+    learning_rate = cosine_decay_with_warmup(learning_rate_base=base_learning_rate,
+                                             total_decay_steps=total_decay_step,
+                                             alpha=alpha,
+                                             warmup_learning_rate=warmup_learning_rate,
+                                             warmup_steps=warmup_steps,
+                                             hold_base_rate_steps=0,
+                                             global_step=global_step_op)
+    tf.summary.scalar("cosine_decay_with_warmup_hold_no", learning_rate)
     summary_op = tf.summary.merge_all()
 
     init_op = tf.group(tf.global_variables_initializer(),
