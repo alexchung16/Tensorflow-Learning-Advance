@@ -33,12 +33,12 @@ def main():
 
     global_step_op = tf.train.get_or_create_global_step()
 
-    learning_rate_no_warmup = manual_stepping(boundaries=decay_boundaries,
+    learning_rate_no_warmup = piecewise_with_warmup(boundaries=decay_boundaries,
                                               rates = learning_rates,
                                               warmup=False,
                                               global_step=global_step_op,)
     tf.summary.scalar("piecewise_no_warmup", learning_rate_no_warmup)
-    learning_rate_with_warmup = manual_stepping(boundaries=decay_boundaries_warmup,
+    learning_rate_with_warmup = piecewise_with_warmup(boundaries=decay_boundaries_warmup,
                                               rates=learning_rates_warmup,
                                               warmup=True,
                                               global_step=global_step_op, )
@@ -73,7 +73,7 @@ def main():
             print('all threads are asked to stop!')
 
 
-def manual_stepping(global_step, boundaries, rates, warmup=False):
+def piecewise_with_warmup(global_step, boundaries, rates, warmup=False):
   """Manually stepped learning rate schedule.
 
   This function provides fine grained control over learning rates.  One must
