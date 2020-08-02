@@ -33,7 +33,7 @@ method = 'linear_cosine_decay'
 max_step = 20000
 base_learning_rate = 0.01
 decay_steps = 10000
-num_periods_1= 1
+num_periods_1= 0.5
 num_periods_4 = 4
 alpha = 0.001
 beta = 0.001
@@ -49,14 +49,14 @@ def main():
     # 1 + cos(pi * 2 * num_periods * global_step / decay_steps))
     # decayed = (alpha + linear_decay + eps_t) * cosine_decay + beta
     # decayed_learning_rate = learning_rate * decayed
-    linear_cosine_decay_1 = tf.train.linear_cosine_decay(learning_rate=base_learning_rate,
+    linear_cosine_decay_05 = tf.train.linear_cosine_decay(learning_rate=base_learning_rate,
                                                          decay_steps=decay_steps,
                                                          num_periods=num_periods_1,
                                                          alpha=alpha,
                                                          beta=beta,
                                                          global_step=global_step_op,
-                                                         name="linear_cosine_decay_1")
-    tf.summary.scalar("linear_cosine_decay_1", linear_cosine_decay_1)
+                                                         name="linear_cosine_decay_05")
+    tf.summary.scalar("linear_cosine_decay_05", linear_cosine_decay_05)
     linear_cosine_decay_4 =  tf.train.linear_cosine_decay(learning_rate=base_learning_rate,
                                                    decay_steps=decay_steps,
                                                    num_periods=num_periods_4,
