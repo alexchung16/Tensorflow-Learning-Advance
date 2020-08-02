@@ -10,18 +10,6 @@
 # @ Software   : PyCharm
 #-------------------------------------------------------
 
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#------------------------------------------------------
-# @ File       : cosine_decay.py
-# @ Description:
-# @ Author     : Alex Chung
-# @ Contact    : yonganzhong@outlook.com
-# @ License    : Copyright (c) 2017-2018
-# @ Time       : 2020/7/31 上午10:41
-# @ Software   : PyCharm
-#-------------------------------------------------------
-
 # SGDR: Stochastic Gradient Descent with Warm Restarts
 
 import os

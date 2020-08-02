@@ -10,8 +10,6 @@
 # @ Software   : PyCharm
 #-------------------------------------------------------
 
-# https://github.com/tensorflow/models/blob/v1.13.0/official/resnet/resnet_run_loop.py#L225
-# https://github.com/tensorflow/models/blob/master/research/object_detection/utils/learning_schedules.py
 
 import os
 import tensorflow as tf
@@ -65,13 +63,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
