@@ -9,16 +9,18 @@ import numpy as np
 import tensorflow as tf
 import cv2 as cv
 
-image_path = '/home/alex/Documents/datasets/dogs_vs_cat_separate/cat/cat.1.jpg'
+image_path = '../Data/sunflowers.jpg'
 
 if __name__ == "__main__":
 
     # --------------------tf.image.convert_image_dtype--------------------------------------------
     image = cv.imread(filename=image_path)
     cv.imshow(winname='image', mat=image)
+
     distort_image = cv.resize(image, dsize=(224, 224))
     custom_distort_image = tf.multiply(tf.cast(distort_image, dtype=tf.float32), 1./255)
     distort_image = tf.image.convert_image_dtype(distort_image, dtype=tf.float32)
+    print(distort_image.dtype.max)
 
     # -------------------tf.image.non_max_suppression--------------------------------------------------------
     boxes = tf.Variable(initial_value=[[1,2, 4, 5], [1, 3, 4, 4], [2, 2, 3, 5], [3, 2 , 6, 4]], dtype=tf.float32)
@@ -27,12 +29,12 @@ if __name__ == "__main__":
     select_boxes = tf.gather(params=boxes, indices=select_indices)
 
     # -----------------------------------tf.images.crop_and_resize-------------------------------------------------------
-    image_feature = np.random.randn(2, 20, 20, 5)
+    image_feature = tf.expand_dims(tf.convert_to_tensor(image), axis=0)
     boxes = [[0.2, 0.2, 0.5, 0.6],
              [0.1, 0.3, 0.6, 0.8],
              [0.2, 0.4, 0.6, 0.5]]
     box_indices = tf.zeros(shape=[tf.shape(boxes)[0], ], dtype=tf.int32)
-    crop_img = tf.image.crop_and_resize(image=image_feature, boxes=boxes, box_ind=box_indices, crop_size=[7, 7])
+    crop_img = tf.image.crop_and_resize(image=image_feature, boxes=boxes, box_ind=box_indices, crop_size=[112, 112])
 
     init = tf.global_variables_initializer()
     with tf.Session() as sess:
@@ -51,6 +53,13 @@ if __name__ == "__main__":
 
         print('------------------------------------')
         print(box_indices.eval())
-        print(sess.run(crop_img).shape)
+        print(tf.shape(crop_img))
+
+        crop_img_1, crop_img_2, crop_img_3 = crop_img.eval()
+
+        cv.imshow("crop image 1", np.array(crop_img_1, np.uint8))
+        cv.imshow("crop image 2", np.array(crop_img_2, np.uint8))
+        cv.imshow("crop image 3", np.array(crop_img_3, np.uint8))
+        cv.waitKey(0)
 
 
