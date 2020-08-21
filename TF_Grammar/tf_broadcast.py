@@ -34,29 +34,29 @@ bboxes = bboxes[:, np.newaxis, np.newaxis, np.newaxis, :, :] # [1, 1, 1, 1, 5, 4
 def bbox_iou(boxes1, boxes2):
     """
 
-    :param boxes1: [batch_size, target_seize, target_size, 3, 1,   4]
-    :param boxes2: [batch_size, 1,            1,           1, 150, 4]
+    :param boxes1: [1, 2, 2, 3, 1, 4]
+    :param boxes2: [1, 1, 1, 1, 5, 4]
     :return:
     """
 
     # get boxes1 area
-    boxes1_area = boxes1[..., 2] * boxes1[..., 3]  # [batch_size, target_seize, target_size, 3, 1]
-    boxes2_area = boxes2[..., 2] * boxes2[..., 3]  # [batch_size, 1,            1,           1, 150]
+    boxes1_area = boxes1[..., 2] * boxes1[..., 3]  # [1, 2, 2, 3, 1]
+    boxes2_area = boxes2[..., 2] * boxes2[..., 3]  # [1, 1, 1, 1, 5]
 
     # (x, y, w, h) => (x_min, y_min, x_max, y_max)
     boxes1 = tf.concat([boxes1[..., :2] - boxes1[..., 2:] * 0.5,
-                        boxes1[..., :2] + boxes1[..., 2:] * 0.5], axis=-1)  # [batch_size, target_seize, target_size, 3, 1,   4]
+                        boxes1[..., :2] + boxes1[..., 2:] * 0.5], axis=-1)  # [1, 2, 2, 3, 1, 4]
     boxes2 = tf.concat([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
-                        boxes2[..., :2] + boxes2[..., 2:] * 0.5], axis=-1)  # [batch_size, 1,            1,           1, 150, 4]
+                        boxes2[..., :2] + boxes2[..., 2:] * 0.5], axis=-1)  # [1, 1, 1, 1, 5, 4]
 
     # get inter bbox
-    left_up = tf.maximum(boxes1[..., :2], boxes2[..., :2])  # [batch_size, target_seize, target_size, 3, 150,  2]
-    right_down = tf.minimum(boxes1[..., 2:], boxes2[..., 2:]) # # [batch_size, target_seize, target_size, 3, 150,  2]
+    left_up = tf.maximum(boxes1[..., :2], boxes2[..., :2])  # [1, 2, 2, 3, 5, 2]
+    right_down = tf.minimum(boxes1[..., 2:], boxes2[..., 2:])  # [1, 2, 2, 3, 5, 2]
     inter_section = tf.maximum(right_down - left_up, 0.0)
 
-    inter_area = inter_section[..., 0] * inter_section[..., 1]
-    union_area = boxes1_area + boxes2_area - inter_area
-    iou = 1.0 * inter_area / union_area  # [[batch_size, target_seize, target_size, 3, 150]
+    inter_area = inter_section[..., 0] * inter_section[..., 1] # [1, 2, 2, 3, 5]
+    union_area = boxes1_area + boxes2_area - inter_area # [1, 2, 2, 3, 5]
+    iou = 1.0 * inter_area / union_area  # [1, 2, 2, 3, 5]
 
     return iou
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     a_sum = tf.reduce_max(a, axis=1)
 
     iou = bbox_iou(pred_xywh, bboxes)
-    max_iou = tf.expand_dims(tf.reduce_max(iou, axis=-1), axis=-1)
+    max_iou = tf.expand_dims(tf.reduce_max(iou, axis=-1), axis=-1) # [1, 2, 2, 3, 1]
 
     a_area = a[..., 2] * a[..., 2]
 
