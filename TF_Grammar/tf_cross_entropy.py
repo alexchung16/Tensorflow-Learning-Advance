@@ -37,12 +37,12 @@ def sigmoid_cross_entropy(logits=None, labels=None):
     :param logits:
     :return:
     """
-    zeros = tf.zeros_like(logits, dtype=logits.dtype)
-    cond = (logits >= zeros)
-    relu_logits = tf.where(cond, logits, zeros)
-    abs_logits = tf.where(cond, logits, -logits)
-
-    return tf.add(relu_logits - tf.multiply(logits, labels), tf.log(sigmoid_reciprocal(abs_logits)))
+    # zeros = tf.zeros_like(logits, dtype=logits.dtype)
+    # cond = (logits >= zeros)
+    # relu_logits = tf.where(cond, logits, zeros)
+    # abs_logits = tf.where(cond, logits, -logits)
+    # return tf.add(relu_logits - tf.multiply(logits, labels), tf.log(sigmoid_reciprocal(abs_logits)))
+    return tf.add(logits - tf.multiply(logits, labels), tf.log(sigmoid_reciprocal(logits)))
 
 
 def sigmoid_reciprocal(inputs):
