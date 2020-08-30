@@ -14,10 +14,11 @@ import os
 import tensorflow as tf
 
 logits = tf.Variable(initial_value=[[0.2, 0.5, 0.3],
-                                     [0.4, 0.4, 0.2],
+                                     [0.4, 0.2, 0.4],
                                      [0.5, 0.1, 0.4]])
 labels = tf.Variable([1, 2, 0])
 labels = tf.one_hot(labels, depth=3)
+
 
 softmax_predict = tf.nn.softmax(logits, axis=-1)
 
@@ -56,6 +57,18 @@ def sigmoid_reciprocal(inputs):
     return tf.add(1.0,  tf.exp(-inputs))
 
 
+def label_smoothing(inputs, epsilon=0.1):
+    """
+    label smoothing
+    see. https://arxiv.org/abs/1906.02629
+    :param inputs: input_label
+    :param epsilon: smoothing rate
+    :return:
+    """
+    v = inputs.get_shape().as_list()[-1]
+    return tf.multiply(1.0-epsilon, inputs) + tf.div(epsilon, v)
+
+smooth_labels = label_smoothing(labels)
 
 if __name__ == "__main__":
 
@@ -63,8 +76,9 @@ if __name__ == "__main__":
     loss_sigmoid = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=logits)
     loss_softmax = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
 
-    custom_softmax_loss = softmax_cross_entropy(labels=labels, logits=logits)
     custom_sigmoid_loss = sigmoid_cross_entropy(labels=labels, logits=logits)
+    custom_softmax_loss = softmax_cross_entropy(labels=labels, logits=logits)
+
 
     init_op = tf.group(tf.global_variables_initializer(),
                        tf.local_variables_initializer())
@@ -72,6 +86,7 @@ if __name__ == "__main__":
     with tf.Session() as sess:
         sess.run(init_op)
         print(labels.eval())
+        print(smooth_labels.eval())
 
         assert loss_sigmoid.eval().all() == custom_sigmoid_loss.eval().all()
         print(loss_sigmoid.eval())
@@ -82,7 +97,7 @@ if __name__ == "__main__":
         print(loss_softmax.eval())
         print(custom_softmax_loss.eval())
 
-        print('Done')
+        print('Done!')
 
 
 
