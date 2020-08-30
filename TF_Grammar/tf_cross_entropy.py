@@ -13,15 +13,6 @@
 import os
 import tensorflow as tf
 
-logits = tf.Variable(initial_value=[[0.2, 0.5, 0.3],
-                                     [0.4, 0.2, 0.4],
-                                     [0.5, 0.1, 0.4]])
-labels = tf.Variable([1, 2, 0])
-labels = tf.one_hot(labels, depth=3)
-
-
-softmax_predict = tf.nn.softmax(logits, axis=-1)
-
 
 def softmax_cross_entropy(labels, logits):
     """
@@ -68,10 +59,18 @@ def label_smoothing(inputs, epsilon=0.1):
     v = inputs.get_shape().as_list()[-1]
     return tf.multiply(1.0-epsilon, inputs) + tf.div(epsilon, v)
 
-smooth_labels = label_smoothing(labels)
+
 
 if __name__ == "__main__":
 
+    logits = tf.Variable(initial_value=[[0.2, 0.5, 0.3],
+                                        [0.4, 0.2, 0.4],
+                                        [0.5, 0.1, 0.4]])
+    labels = tf.Variable([1, 2, 0])
+    labels = tf.one_hot(labels, depth=3)
+
+    softmax_predict = tf.nn.softmax(logits, axis=-1)
+    smooth_labels = label_smoothing(labels)
 
     loss_sigmoid = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=logits)
     loss_softmax = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
