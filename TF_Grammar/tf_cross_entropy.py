@@ -26,17 +26,23 @@ def softmax_cross_entropy(labels, logits):
 
     return loss
 
+
 def sigmoid_cross_entropy(logits=None, labels=None):
     """
     x = logits, z = labels
     loss = z * -log(sigmoid(x)) + (1 - z) * -log(1 - sigmoid(x))
          = x - x * z + log(1 + exp(-x))
+    loss = max(x, 0) - x * z + log(1 + exp(-abs(x)))
     :param label:
     :param logits:
     :return:
     """
+    zeros = tf.zeros_like(logits, dtype=logits.dtype)
+    cond = (logits >= zeros)
+    relu_logits = tf.where(cond, logits, zeros)
+    abs_logits = tf.where(cond, logits, -logits)
 
-    return logits - tf.multiply(logits, labels) + tf.log(sigmoid_reciprocal(logits))
+    return tf.add(relu_logits - tf.multiply(logits, labels), tf.log(sigmoid_reciprocal(abs_logits)))
 
 
 def sigmoid_reciprocal(inputs):
@@ -58,7 +64,6 @@ def label_smoothing(inputs, epsilon=0.1):
     """
     v = inputs.get_shape().as_list()[-1]
     return tf.multiply(1.0-epsilon, inputs) + tf.div(epsilon, v)
-
 
 
 if __name__ == "__main__":
@@ -84,17 +89,16 @@ if __name__ == "__main__":
 
     with tf.Session() as sess:
         sess.run(init_op)
-        print(labels.eval())
-        print(smooth_labels.eval())
+        print("onehot label:\n", labels.eval())
+        print("smooth label:\n", smooth_labels.eval())
 
         assert loss_sigmoid.eval().all() == custom_sigmoid_loss.eval().all()
-        print(loss_sigmoid.eval())
-        print(custom_sigmoid_loss.eval())
+        print("sigmoid cross entropy loss with api: \n", loss_sigmoid.eval())
+        print("sigmoid cross entropy loss with custom: \n", custom_sigmoid_loss.eval())
 
         assert softmax_predict.eval().all() == custom_softmax_loss.eval().all()
-        print(softmax_predict.eval())
-        print(loss_softmax.eval())
-        print(custom_softmax_loss.eval())
+        print("softmax cross entropy loss with api: \n", loss_softmax.eval())
+        print("softmax cross entropy loss with custom: \n", custom_softmax_loss.eval())
 
         print('Done!')
 
