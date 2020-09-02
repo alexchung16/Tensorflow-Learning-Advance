@@ -68,41 +68,40 @@ def label_smoothing(inputs, epsilon=0.1):
 
 if __name__ == "__main__":
 
-    logits = tf.Variable(initial_value=[[0.2, 0.5, 0.3],
-                                        [0.4, 0.2, 0.4],
-                                        [0.5, 0.1, 0.4]])
+    logits = tf.Variable(initial_value=[[0.7, 1.2, 0.3],
+                                        [0.4, 0.2, 0.9],
+                                        [0.6, 0.3, 0.4]])
+    s = tf.nn.softmax(logits, axis=-1)
     labels = tf.Variable([1, 2, 0])
     labels = tf.one_hot(labels, depth=3)
 
     softmax_predict = tf.nn.softmax(logits, axis=-1)
     smooth_labels = label_smoothing(labels)
 
-    loss_sigmoid = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=logits)
+    loss_sigmoid = tf.nn.sigmoid_cross_entropy_with_logits(labels=smooth_labels, logits=logits)
     loss_softmax = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
 
-    custom_sigmoid_loss = sigmoid_cross_entropy(labels=labels, logits=logits)
+    custom_sigmoid_loss = sigmoid_cross_entropy(labels=smooth_labels, logits=logits)
     custom_softmax_loss = softmax_cross_entropy(labels=labels, logits=logits)
-
 
     init_op = tf.group(tf.global_variables_initializer(),
                        tf.local_variables_initializer())
 
     with tf.Session() as sess:
         sess.run(init_op)
+        print(s.eval())
         print("onehot label:\n", labels.eval())
         print("smooth label:\n", smooth_labels.eval())
 
-        assert loss_sigmoid.eval().all() == custom_sigmoid_loss.eval().all()
+        assert (loss_sigmoid.eval() == custom_sigmoid_loss.eval()).all()
         print("sigmoid cross entropy loss with api: \n", loss_sigmoid.eval())
         print("sigmoid cross entropy loss with custom: \n", custom_sigmoid_loss.eval())
 
-        assert softmax_predict.eval().all() == custom_softmax_loss.eval().all()
+        assert (loss_softmax.eval() == custom_softmax_loss.eval()).all()
         print("softmax cross entropy loss with api: \n", loss_softmax.eval())
         print("softmax cross entropy loss with custom: \n", custom_softmax_loss.eval())
 
         print('Done!')
-
-
 
 
 
