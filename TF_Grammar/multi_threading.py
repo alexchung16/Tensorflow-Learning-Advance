@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #------------------------------------------------------
-# @ File       : multi_thrading.py
+# @ File       : multi_threading.py
 # @ Description:  
 # @ Author     : Alex Chung
 # @ Contact    : yonganzhong@outlook.com
